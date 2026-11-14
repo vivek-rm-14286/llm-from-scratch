@@ -300,9 +300,10 @@ Chinchilla ([Hoffmann et al. 2022](https://arxiv.org/abs/2203.15556)) found that
 | Chinchilla-optimal | 10B | ~21 | 3.7 × 10¹⁹ | ~26 | ~3.5 h | roughly USD 50-105 |
 | Overtrained (better SLM) | 50B | ~103 | 1.9 × 10²⁰ | ~131 | ~16 h | roughly USD 260-525 |
 | Cheap path: `p125m` on one RTX 4090 | 2.5B | ~20 | 2.6 × 10¹⁸ | ~12 (4090-hours) | ~12 h | electricity, or a few USD of rented 4090 time |
+| Same, on a 16 GB RTX 5070 Ti (`configs/p125m_16gb.json`) | 2.5B | ~20 | 2.6 × 10¹⁸ | ~23 (5070 Ti-hours) | ~23 h | electricity (about 7 kWh) |
 | SFT for Part B (one H100, 2 epochs of SmolTalk) | ~1.25B (assumed) | n/a | ~4.7 × 10¹⁸ | ~3-5 (25-40% MFU) | ~3-5 h on one GPU | roughly USD 6-20 |
 
-`count_params.py` reproduces the pretraining rows. For the cheap path, run `python count_params.py --model p125m --tokens 2.5e9 --peak_tflops 165 --mfu 0.35`. The 4090 figure assumes about 165 TFLOP/s dense bf16 with fp32 accumulation. None of these rows is a measured run.
+`count_params.py` reproduces the pretraining rows. For the cheap path, run `python count_params.py --model p125m --tokens 2.5e9 --peak_tflops 165 --mfu 0.35`. The 4090 figure assumes about 165 TFLOP/s dense bf16 with fp32 accumulation. The RTX 5070 Ti row assumes about 88 TFLOP/s by the same convention (`--peak_tflops 88`) and a micro-batch of 4 sequences to fit 16 GB; the full `p500m` run on that card would take about 14 days, so it is not listed. None of these rows is a measured run.
 
 The SFT row is computed the same way, from tokens × FLOPs per token, with these assumptions: about 1.04M SmolTalk conversations averaging about 600 tokens after truncation to 2048, so about 0.62B tokens per epoch and 1.25B for the default 2 epochs; the pretraining cost of 3.72 GFLOP per token as an upper bound (shorter sequences have a smaller attention term); and 25-40% MFU, lower than pretraining because `sft.py` runs on one GPU without `torch.compile` and pads each batch to its longest conversation. The token count is the weakest assumption. `sft.py` prints the real number of training tokens when it starts, so rescale from that.
 

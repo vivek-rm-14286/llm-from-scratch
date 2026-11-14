@@ -106,11 +106,29 @@ The site is written for four tiers. Each project states the hardware it needs.
 | Tier | Example | Memory | Good for |
 |------|---------|--------|----------|
 | **1. Laptop** | Apple Silicon Mac (M-series), or any laptop CPU | 16-128 GB unified (Mac) | All Foundations and Language Models pages, tiny transformers (up to a few tens of millions of params), Project 4, Project 3 retrieval and small generators, inference of quantized small models |
-| **2. Consumer GPU** | RTX 3090 / 4090 (24 GB), or a 5090 (32 GB) | 24-32 GB VRAM | Training models up to roughly 100-300M params, QLoRA fine-tuning of models up to roughly 7-14B params, Project 2 and Project 3 fully |
+| **2. Consumer GPU** | RTX 3090 / 4090 (24 GB), or a 5090 (32 GB). A 16 GB card (RTX 5070 Ti, 4080) does most of this more slowly: see below | 24-32 GB VRAM | Training models up to roughly 100-300M params, QLoRA fine-tuning of models up to roughly 7-14B params, Project 2 and Project 3 fully |
 | **3. Single data-center GPU** | One A100 80 GB or H100 80 GB, rented | 80 GB HBM | Debugging and short runs of Project 1, full fine-tuning of small models, LoRA on larger ones |
 | **4. 8-GPU node** | 8x H100 80 GB with NVLink, rented | 640 GB total | Project 1 full pretraining run in hours rather than days |
 
 Apple Silicon is unusual because the GPU shares system memory. A 64 GB Mac can *load* models that do not fit on a 24 GB GPU, but its compute throughput and memory bandwidth are well below an H100, so training is much slower.
+
+### What a 16 GB card can do (RTX 5070 Ti)
+
+A 16 GB card such as the RTX 5070 Ti sits between tier 1 and tier 2. The numbers below are estimates from the same arithmetic used elsewhere on this page, not measurements. They assume a peak of about 88 TFLOP/s for dense bf16 (8,960 cores × 2 × 2.45 GHz × 2 for half precision, the same convention that gives the RTX 4090 its 165), 35% MFU for pretraining, 896 GB/s of memory bandwidth, and 16 GB of VRAM.
+
+| Task | Fits in 16 GB? | Rough time |
+|---|---|---|
+| Project 1 warm-up: `p30m`, 50M tokens | easily | 10-20 minutes |
+| Project 1 cheap path: `p125m`, 2.5B tokens | yes, with micro-batch 4 (`configs/p125m_16gb.json`) | about 23 hours (about 12 on an RTX 4090) |
+| Project 1 full model: `p500m`, 10B tokens | barely: about 7.8 GB of weights and optimizer state, micro-batch 1-2 | about 14 days of continuous running. Rent GPUs for this one |
+| Project 1 Part B: SFT of the `p125m` model on SmolTalk, 2 epochs | yes | about 12 hours; a quarter of the data in about 3 |
+| Project 2: QLoRA on a 7B model | yes, tight: 4-bit base about 5.5-6 GB plus activations; use batch 1 with gradient accumulation | roughly 2-3 hours |
+| Project 2: QLoRA on the 1.5B model | easily | roughly 30-40 minutes |
+| Serving a 7-8B model in 4-bit (GGUF Q4_K_M, about 4.7 GB) | yes, with room for a long context | bandwidth ceiling about 190 tokens/s; expect roughly 60-110 in practice |
+| Serving a 7B model in bf16 (about 15 GB) | no: nothing left for the KV cache | use a 4-bit or AWQ build |
+| Projects 3 and 4 | no GPU needed | the card only speeds up embedding and the local generator |
+
+Electricity is the only cost: at about 300 W, the 23-hour run uses about 7 kWh.
 
 ## GPU memory math
 

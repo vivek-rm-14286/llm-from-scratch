@@ -1,0 +1,18 @@
+{
+  "model": "p125m",
+  "data_dir": "data/fwe",
+  "out_dir": "out/p125m",
+  "seq_len": 2048,
+  "batch_size": 4,
+  "total_batch_tokens": 262144,
+  "lr": 0.0015,
+  "schedule": "wsd",
+  "warmup_steps": 500,
+  "decay_frac": 0.2,
+  "max_steps": 9537,
+  "peak_tflops": 88,
+  "eval_every": 250,
+  "sample_every": 1000,
+  "save_every": 500,
+  "keep_every": 0
+}

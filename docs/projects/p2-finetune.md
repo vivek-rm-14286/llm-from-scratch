@@ -42,7 +42,8 @@ The second command must end with `SELF-CHECK PASS`. It proves that the data, the
 | Tier | Base model | Prompted baseline | QLoRA training |
 |---|---|---|---|
 | One 24 GB NVIDIA GPU (RTX 3090/4090, A10G, L4), local or rented | `Qwen/Qwen2.5-7B-Instruct` | vLLM | yes |
-| 16 GB NVIDIA GPU or a free Colab T4 | `Qwen/Qwen2.5-1.5B-Instruct` | local HF backend | yes, with `--fp16 --batch-size 2` |
+| 16 GB NVIDIA GPU with bf16 (RTX 5070 Ti, 4080, 4060 Ti 16 GB) | `Qwen/Qwen2.5-7B-Instruct` | Ollama, or vLLM with a 4-bit/AWQ build (the bf16 weights alone are about 15 GB) | yes, with `--batch-size 1 --grad-accum 16 --max-length 1536`; estimate: 2-3 hours on a 5070 Ti |
+| Free Colab T4 (16 GB, no bf16) or a smaller GPU | `Qwen/Qwen2.5-1.5B-Instruct` | local HF backend | yes, with `--fp16 --batch-size 2` |
 | Apple Silicon Mac | 7B through Ollama, or 1.5B through the local HF backend | yes | no: 4-bit `bitsandbytes` training needs CUDA. Train on Colab or a rented GPU, then serve the result on the Mac as GGUF |
 
 A rented 24 GB GPU costs roughly USD 0.30-0.80 per hour (see [Setup, Hardware & Budget](../start/setup.md#rough-price-ranges)), so the whole project is a few USD of GPU time.
@@ -280,7 +281,8 @@ So the test set asks: "given a kind of incident the model has never seen, but in
 |---|---|---|
 | Single 24 GB GPU (RTX 3090/4090, A10G, L4) | `Qwen/Qwen2.5-7B-Instruct` | QLoRA 4-bit, batch 4, seq 2048 fits with gradient checkpointing |
 | Alternative 8B | `meta-llama/Llama-3.1-8B-Instruct` | Gated on Hugging Face (accept the license); same script |
-| 16 GB GPU / free Colab T4 | `Qwen/Qwen2.5-1.5B-Instruct` | Use `--fp16` (T4 has no bf16), `--batch-size 2` |
+| 16 GB GPU with bf16 (RTX 5070 Ti, 4080) | `Qwen/Qwen2.5-7B-Instruct` | `--batch-size 1 --grad-accum 16 --max-length 1536` keeps the same effective batch; not measured, lower `--max-length` if it runs out of memory |
+| Free Colab T4 or a smaller GPU | `Qwen/Qwen2.5-1.5B-Instruct` | Use `--fp16` (T4 has no bf16), `--batch-size 2` |
 
 Why QLoRA: the 7B model's weights are stored in 4-bit NF4 (roughly 5-6 GB instead of about 15 GB in bf16, since the embeddings and output head stay in 16-bit), frozen, and you train small low-rank adapters on top in bf16. See [LoRA & QLoRA](../finetuning/lora-qlora.md) for the math.
 

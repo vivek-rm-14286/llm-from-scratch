@@ -115,37 +115,45 @@ def main() -> int:
     href_re = re.compile(r'href="([^"]*)"')
     errors = []
     search = []
-    for rel, r in routes.items():
-        src = (DOCS / rel).read_text()
-        md = md_instance()
-        body = md.convert(src)
 
+    # pass 1: compile every page, pull out the title, collect heading/anchor ids
+    bodies: dict[str, str] = {}
+    ids: dict[str, set[str]] = {}
+    for rel, r in routes.items():
+        body = md_instance().convert((DOCS / rel).read_text())
         m = re.search(r"<h1[^>]*>(.*?)</h1>", body, re.S)
-        title = text_of(m.group(1)) if m else meta[r]["label"]
+        meta[r]["title"] = text_of(m.group(1)) if m else meta[r]["label"]
         if m:
             body = body[: m.start()] + body[m.end():]
+        bodies[rel] = body
+        ids[r] = set(re.findall(r'\bid="([^"]+)"', body))
 
+    # pass 2: rewrite and validate links (page and anchor), build metadata and search records
+    for rel, r in routes.items():
+        body = bodies[rel]
+        title = meta[r]["title"]
         base_dir = posixpath.dirname(rel)
 
         def fix(mo: re.Match) -> str:
             h = html.unescape(mo.group(1))
             if re.match(r"^[a-z]+:", h) or h.startswith("//"):
                 return mo.group(0)
-            if h.startswith("#"):
-                return f'href="#/{r}{h}"'
             path, _, frag = h.partition("#")
-            target = posixpath.normpath(posixpath.join(base_dir, path)) if path else rel
-            if target.endswith("/") or not target.endswith(".md"):
-                cand = target.rstrip("/") + "/index.md"
-                cand2 = target.rstrip("/") + ".md"
-                target = cand if cand in routes else cand2
-            if target == "index.md":
-                tr = ""
-            elif target in routes:
-                tr = routes[target]
+            if not path:
+                tr = r
             else:
-                errors.append(f"{rel}: broken link {h}")
-                return mo.group(0)
+                target = posixpath.normpath(posixpath.join(base_dir, path))
+                if target.endswith("/") or not target.endswith(".md"):
+                    cand = target.rstrip("/") + "/index.md"
+                    target = cand if cand in routes else target.rstrip("/") + ".md"
+                if target == "index.md":
+                    return 'href="#/"'
+                if target not in routes:
+                    errors.append(f"{rel}: broken link {h}")
+                    return mo.group(0)
+                tr = routes[target]
+            if frag and frag not in ids[tr]:
+                errors.append(f"{rel}: broken anchor {h} (no id '{frag}' on {tr or 'home'})")
             return f'href="#/{tr}' + (f"#{frag}" if frag else "") + '"'
 
         body = href_re.sub(fix, body)
@@ -156,9 +164,15 @@ def main() -> int:
                     for lv, hid, txt in re.findall(r'<h([23]) id="([^"]+)"[^>]*>(.*?)</h\1>', body, re.S)]
         (OUT / "pages" / f"{page_id(r)}.html").write_text(body)
 
-        meta[r].update({"title": title, "id": page_id(r), "headings": headings,
+        # reading time: prose at 200 wpm, code skimmed at twice that
+        code_words = sum(len(text_of(c).split()) for c in re.findall(r"<pre.*?</pre>", body, re.S))
+        prose = re.sub(r"<(script|style).*?</\1>", " ", re.sub(r"<pre.*?</pre>", " ", body, flags=re.S), flags=re.S)
+        prose_words = len(text_of(prose).split())
+        minutes = max(1, round((prose_words + 0.5 * code_words) / 200))
+
+        meta[r].update({"id": page_id(r), "headings": headings, "minutes": minutes,
                         "hasMath": "arithmatex" in body, "hasMermaid": 'class="mermaid"' in body,
-                        "hasScript": "<script" in body})
+                        "hasScript": "<script" in body, "hasTasks": "task-list-item" in body})
 
         # search records: one per h2/h3 section
         parts = re.split(r'(<h[23] id="[^"]+"[^>]*>.*?</h[23]>)', body, flags=re.S)
@@ -180,6 +194,23 @@ def main() -> int:
                 buf.append(p)
         flush()
 
+    if errors:
+        print("\n".join(errors), file=sys.stderr)
+        return 1
+
+    # "Used in": concept page → the project steps that apply it (docs/curriculum.yml: used_in)
+    for rel, uses in (cur.get("used_in") or {}).items():
+        if rel not in routes:
+            errors.append(f"curriculum.yml used_in: unknown page {rel}")
+            continue
+        out = []
+        for u in uses:
+            if u["project"] not in routes:
+                errors.append(f"curriculum.yml used_in[{rel}]: unknown project page {u['project']}")
+                continue
+            pr = routes[u["project"]]
+            out.append({"route": pr, "title": meta[pr]["title"], "note": u.get("note", "")})
+        meta[routes[rel]]["usedIn"] = out
     if errors:
         print("\n".join(errors), file=sys.stderr)
         return 1

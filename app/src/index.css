@@ -280,3 +280,21 @@ article table { max-width: 100%; }
   .prose-lf div.highlight pre { font-size: 11.5px; }
   .prose-lf .admonition, .prose-lf details { padding-left: 1rem; padding-right: 1rem; }
 }
+
+/* heading deep links, failed diagrams, interactive checklists, print */
+.prose-lf .h-anchor { margin-left: .4rem; color: var(--muted); font-weight: 500; opacity: 0; text-decoration: none; transition: opacity .15s; }
+.prose-lf :is(h2, h3):hover .h-anchor, .prose-lf .h-anchor:focus { opacity: 1; }
+.prose-lf .h-anchor:hover { color: var(--accent); text-decoration: none; }
+.prose-lf pre.mermaid-failed { margin: 1.5rem 0; overflow-x: auto; border: 1px dashed var(--border); border-radius: .75rem; background: var(--code-bg); padding: 1rem; font-size: 12.5px; }
+.prose-lf .task-list-control { cursor: pointer; }
+.prose-lf .task-list-control input:focus-visible + .task-list-indicator { outline: 2px solid var(--accent); outline-offset: 2px; }
+.prose-lf .task-list-control input:checked + .task-list-indicator { background: var(--c-ok) var(--i-check-w) center / 80% no-repeat; }
+.prose-lf { --i-check-w: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>'); }
+.prose-lf .task-list-item:has(input:checked) { color: var(--muted); }
+@media print {
+  html, body { background: #fff !important; color: #000 !important; }
+  .prose-lf .copy-btn, .prose-lf .h-anchor { display: none !important; }
+  .prose-lf div.highlight pre { white-space: pre-wrap; overflow: visible; }
+  .prose-lf div.highlight, .prose-lf .admonition, .prose-lf details, .prose-lf table { break-inside: avoid; }
+  .prose-lf a[href^="http"]::after { content: " (" attr(href) ")"; font-size: .8em; color: #555; word-break: break-all; }
+}

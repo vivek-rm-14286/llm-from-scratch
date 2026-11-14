@@ -21,7 +21,7 @@ tracks:
     - Python & PyTorch: foundations/pytorch.md
     - Neural Networks & Backprop: foundations/neural-networks.md
   - title: Language Models
-    blurb: Tokenizers, attention, a GPT line by line, modern architectures, scaling laws, other families and multimodal models.
+    blurb: Tokenizers, attention, a GPT line by line, modern architectures, how to design a small model, and scaling laws.
     lessons:
     - Overview: llm/index.md
     - Tokenization: llm/tokenization.md
@@ -29,8 +29,6 @@ tracks:
     - The Transformer, Line by Line: llm/transformer.md
     - Modern Architectures & SLM Design: llm/modern-architectures.md
     - Scaling Laws & Compute: llm/scaling-laws.md
-    - Architecture Families & Beyond Transformers: llm/architecture-families.md
-    - Multimodal Models: llm/multimodal.md
 - title: Training Models
   code: T
   blurb: Pretrain a base model, post-train it into an assistant, and adapt open-weight models to real work.
@@ -58,6 +56,11 @@ tracks:
     - Overview: finetuning/index.md
     - LoRA & QLoRA: finetuning/lora-qlora.md
     - Continued Pretraining & Model Merging: finetuning/merging-continued-pretraining.md
+  - title: Beyond the Core
+    blurb: Electives you can skip on the way to the projects — encoder and encoder-decoder models, Mamba and other non-transformer designs, and multimodal models.
+    lessons:
+    - Architecture Families & Beyond Transformers: llm/architecture-families.md
+    - Multimodal Models: llm/multimodal.md
 - title: Applying Models
   code: A
   blurb: Serve models fast, ground them in your data, build agents on top, and ship them safely.
@@ -114,3 +117,57 @@ tracks:
 reference:
 - Glossary: glossary.md
 - Resources: resources.md
+used_in:
+  foundations/pytorch.md:
+  - {project: projects/p4-decision-model.md, note: "train_bc.py is a plain PyTorch training loop"}
+  foundations/neural-networks.md:
+  - {project: projects/p4-decision-model.md, note: "the policy is a small MLP trained with Adam"}
+  llm/tokenization.md:
+  - {project: projects/p1-500m-model.md, note: "train_tokenizer.py trains the byte-level BPE; sft.py adds the chat special tokens"}
+  llm/attention.md:
+  - {project: projects/p1-500m-model.md, note: "model.py: causal self-attention with grouped-query heads"}
+  llm/transformer.md:
+  - {project: projects/p1-500m-model.md, note: "model.py is this GPT with modern components swapped in"}
+  llm/modern-architectures.md:
+  - {project: projects/p1-500m-model.md, note: "config.py and model.py: RMSNorm, RoPE, SwiGLU, GQA and the 486.6M design"}
+  llm/scaling-laws.md:
+  - {project: projects/p1-500m-model.md, note: "the compute budget and token count for the run"}
+  pretraining/data.md:
+  - {project: projects/p1-500m-model.md, note: "prepare_data.py streams, tokenizes and writes binary shards"}
+  pretraining/training.md:
+  - {project: projects/p1-500m-model.md, note: "train.py: the loop, schedule, mixed precision, checkpoints"}
+  pretraining/distributed.md:
+  - {project: projects/p1-500m-model.md, note: "train.py under torchrun (DDP)"}
+  pretraining/gpu-performance.md:
+  - {project: projects/p1-500m-model.md, note: "throughput tuning and MFU logging in train.py"}
+  pretraining/evaluation.md:
+  - {project: projects/p1-500m-model.md, note: "eval_hellaswag.py and validation loss"}
+  post-training/sft.md:
+  - {project: projects/p1-500m-model.md, note: "sft.py turns the base model into a chat model"}
+  - {project: projects/p2-finetune.md, note: "train_qlora.py is SFT on chat-format triage examples"}
+  post-training/distillation-synthetic-data.md:
+  - {project: projects/p2-finetune.md, note: "generate_data.py and teacher_label.py build the training set"}
+  finetuning/index.md:
+  - {project: projects/p2-finetune.md, note: "the prompted baseline comes before any training"}
+  finetuning/lora-qlora.md:
+  - {project: projects/p2-finetune.md, note: "train_qlora.py and merge_adapter.py"}
+  inference/inference.md:
+  - {project: projects/p1-500m-model.md, note: "chat.py: sampling with a KV cache"}
+  - {project: projects/p2-finetune.md, note: "serving the merged or quantized model"}
+  rag/fundamentals.md:
+  - {project: projects/p3-rag.md, note: "ingest.py: chunking, embedding and indexing"}
+  rag/advanced.md:
+  - {project: projects/p3-rag.md, note: "retrieve.py (hybrid search, reranking) and eval.py"}
+  applications/prompting.md:
+  - {project: projects/p2-finetune.md, note: "prompts.py and schema-validated JSON output"}
+  - {project: projects/p3-rag.md, note: "generate.py builds the cited-answer prompt"}
+  production/safety.md:
+  - {project: projects/p3-rag.md, note: "access levels and prompt injection through retrieved documents"}
+  decision/rl-basics.md:
+  - {project: projects/p4-decision-model.md, note: "env.py is a Gymnasium environment"}
+  decision/policy-methods.md:
+  - {project: projects/p4-decision-model.md, note: "train_ppo.py is a single-file PPO"}
+  decision/imitation.md:
+  - {project: projects/p4-decision-model.md, note: "train_bc.py: behavior cloning and DAgger from expert.py"}
+  decision/system-one.md:
+  - {project: projects/p4-decision-model.md, note: "export_onnx.py: a microsecond-scale controller"}

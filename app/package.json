@@ -10,7 +10,8 @@
     "prebuild": "npm run content",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "lint": "oxlint"
+    "lint": "oxlint",
+    "check": "npm run content && tsc -b && oxlint --deny-warnings && node scripts/check_math.mjs"
   },
   "dependencies": {
     "framer-motion": "^14.14.0",

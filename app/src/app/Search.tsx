@@ -34,33 +34,39 @@ export function Search({ onClose }: { onClose: () => void }) {
   const [sel, setSel] = useState(0)
   const nav = useNavigate()
   const input = useRef<HTMLInputElement>(null)
-  useEffect(() => { loadIndex().then(setIdx); input.current?.focus() }, [])
+  const list = useRef<HTMLUListElement>(null)
+  useEffect(() => { void loadIndex().then(setIdx); input.current?.focus() }, [])
+  // Esc closes from anywhere; the selected row stays in view while arrowing
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+  useEffect(() => { list.current?.querySelector('[data-sel="true"]')?.scrollIntoView({ block: 'nearest' }) }, [sel])
 
   const terms = useMemo(() => q.toLowerCase().split(/\s+/).filter((w) => w.length > 1), [q])
   const results = useMemo(() => {
     if (!idx || !terms.length) return []
     return idx.map((r) => [score(r, terms), r] as const).filter(([s]) => s > 0).sort((a, b) => b[0] - a[0]).slice(0, 30).map(([, r]) => r)
   }, [idx, terms])
-  useEffect(() => setSel(0), [q])
 
   const go = (r: Rec) => { onClose(); nav(`/${r.r}${r.a ? `#${r.a}` : ''}`) }
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 px-4 pt-[10vh]" onClick={onClose}>
-      <div className="flex max-h-[75vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-2xl" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Search">
+      <div className="flex max-h-[75vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-2xl" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Search">
         <div className="flex items-center gap-3 border-b border-line px-4">
           <SearchIcon className="size-4 text-muted" />
-          <input ref={input} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search lessons, e.g. rope, dpo, kv cache…"
+          <input ref={input} value={q} onChange={(e) => { setQ(e.target.value); setSel(0) }} placeholder="Search lessons, e.g. rope, dpo, kv cache…"
             className="h-12 flex-1 bg-transparent text-[15px] outline-none placeholder:text-muted"
             onKeyDown={(e) => {
-              if (e.key === 'Escape') onClose()
-              else if (e.key === 'ArrowDown') { e.preventDefault(); setSel((s) => Math.min(s + 1, results.length - 1)) }
+              if (e.key === 'ArrowDown') { e.preventDefault(); setSel((s) => Math.min(s + 1, results.length - 1)) }
               else if (e.key === 'ArrowUp') { e.preventDefault(); setSel((s) => Math.max(s - 1, 0)) }
               else if (e.key === 'Enter' && results[sel]) go(results[sel])
             }} />
           <kbd className="rounded border border-line px-1.5 font-mono text-[10px] text-muted">esc</kbd>
         </div>
-        <ul className="overflow-y-auto p-2">
+        <ul ref={list} className="overflow-y-auto p-2">
           {!idx && <li className="px-3 py-6 text-center text-sm text-muted">Loading index…</li>}
           {idx && terms.length > 0 && results.length === 0 && <li className="px-3 py-6 text-center text-sm text-muted">No results for “{q}”.</li>}
           {idx && terms.length === 0 && <li className="px-3 py-6 text-center text-sm text-muted">Type to search {Object.keys(PAGES).length} pages.</li>}
@@ -68,7 +74,7 @@ export function Search({ onClose }: { onClose: () => void }) {
             const m = PAGES[r.r]
             return (
               <li key={`${r.r}#${r.a}`}>
-                <button onClick={() => go(r)} onMouseEnter={() => setSel(i)}
+                <button data-sel={i === sel} onClick={() => go(r)} onMouseEnter={() => setSel(i)}
                   className={`w-full rounded-lg px-3 py-2.5 text-left ${i === sel ? 'bg-accent-soft' : ''}`}>
                   <span className="flex items-center gap-2">
                     {m?.module && <span className="font-mono text-[10px] font-bold text-accent">{m.module}</span>}

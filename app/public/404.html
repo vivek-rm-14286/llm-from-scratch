@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Redirecting… · LLM From Scratch</title>
+    <meta name="robots" content="noindex" />
+    <script>
+      // Old path-style URLs (/llm-from-scratch/llm/attention/) → hash routes (/llm-from-scratch/#/llm/attention).
+      var parts = location.pathname.split('/').filter(Boolean)
+      var base = location.hostname.endsWith('github.io') ? '/' + (parts.shift() || '') + '/' : '/'
+      var route = parts.join('/').replace(/(index|404)\.html$/, '').replace(/\/$/, '')
+      location.replace(base + '#/' + route + (location.hash ? location.hash : ''))
+    </script>
+  </head>
+  <body></body>
+</html>

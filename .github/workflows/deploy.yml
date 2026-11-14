@@ -34,7 +34,8 @@ jobs:
           cache: npm
           cache-dependency-path: app/package-lock.json
       - run: npm ci
-      # prebuild compiles docs/*.md (fails on broken internal links or pages missing from docs/curriculum.yml)
+      # compiles docs/*.md (fails on broken links/anchors or unlisted pages), type-checks, lints, compiles all math
+      - run: npm run check
       - run: npm run build
       - uses: actions/upload-pages-artifact@v3
         with:

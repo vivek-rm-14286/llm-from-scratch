@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ArrowRight, Code, Cpu, FlaskConical, Layers } from 'lucide-react'
-import { LESSON_ORDER, TRACKS, routeHref } from '../content'
+import { LESSON_ORDER, PAGES, TRACKS, fmtMinutes, routeHref } from '../content'
 import { useProgress } from './progress'
 
 export function Home() {
@@ -60,7 +60,7 @@ export function Home() {
                 <div className="flex flex-wrap items-baseline gap-x-3">
                   <span className="font-mono text-sm font-bold text-accent">{m.code}</span>
                   <h3 className="text-xl font-bold tracking-tight">{m.title}</h3>
-                  <span className="ml-auto font-mono text-xs text-muted">{n}/{m.lessons.length} done</span>
+                  <span className="ml-auto font-mono text-xs text-muted">{fmtMinutes(m.lessons.reduce((a, l) => a + PAGES[l.route].minutes, 0))} · {n}/{m.lessons.length} done</span>
                 </div>
                 <p className="mt-1 text-sm text-muted">{m.blurb}</p>
                 <ol className="mt-3 flex flex-wrap gap-2">

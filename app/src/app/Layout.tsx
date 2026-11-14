@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
 import { BookMarked, Check, ChevronDown, FlaskConical, Menu, Monitor, Moon, Search as SearchIcon, Sun, X } from 'lucide-react'
 import { LESSON_ORDER, PAGES, REFERENCE, SITE, TRACKS, routeHref } from '../content'
@@ -10,8 +10,6 @@ import { GithubIcon } from "./GithubIcon"
 export function Layout({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
-  const loc = useLocation()
-  useEffect(() => { setOpen(false) }, [loc.pathname])
   const done = useProgress()
   const total = LESSON_ORDER.length
   const pct = total ? Math.round((LESSON_ORDER.filter((r) => done.has(r)).length / total) * 100) : 0
@@ -22,13 +20,22 @@ export function Layout({ children }: { children: ReactNode }) {
       const typing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)
       if ((e.key === 'k' && (e.metaKey || e.ctrlKey)) || (e.key === '/' && !typing)) { e.preventDefault(); setSearchOpen(true) }
     }
+    const onOpen = () => setSearchOpen(true)
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    window.addEventListener('open-search', onOpen)
+    return () => { window.removeEventListener('keydown', onKey); window.removeEventListener('open-search', onOpen) }
   }, [])
+
+  // lock page scroll behind the mobile drawer and the search dialog
+  useEffect(() => {
+    document.body.style.overflow = open || searchOpen ? 'hidden' : ''
+    return () => { document.body.style.overflow = '' }
+  }, [open, searchOpen])
 
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-line bg-bg/85 px-4 backdrop-blur">
+      <a href="#main-content" onClick={(e) => { e.preventDefault(); document.getElementById('main-content')?.focus() }} className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-accent focus:px-3 focus:py-1.5 focus:text-sm focus:font-semibold focus:text-white">Skip to content</a>
+      <header className="sticky top-0 z-30 flex h-14 print:hidden items-center gap-3 border-b border-line bg-bg/85 px-4 backdrop-blur">
         <button className="rounded-md p-1.5 lg:hidden" onClick={() => setOpen((o) => !o)} aria-label="Toggle navigation">{open ? <X className="size-5" /> : <Menu className="size-5" />}</button>
         <Link to="/" className="flex items-center gap-2 font-bold tracking-tight">
           <img src="./favicon.svg" alt="" className="size-6" /> <span className="hidden sm:inline">{SITE.title}</span><span className="sm:hidden">LLM Scratch</span>
@@ -49,11 +56,11 @@ export function Layout({ children }: { children: ReactNode }) {
         </div>
       </header>
       <div className="flex">
-        <aside className={`fixed inset-y-0 top-14 z-20 w-80 shrink-0 overflow-y-auto border-r border-line bg-bg scrollbar-thin transition-transform lg:sticky lg:h-[calc(100vh-3.5rem)] lg:translate-x-0 ${open ? 'translate-x-0' : '-translate-x-full'}`}>
+        <aside onClick={(e) => { if ((e.target as HTMLElement).closest('a')) setOpen(false) }} className={`fixed inset-y-0 top-14 z-20 w-80 shrink-0 overflow-y-auto border-r border-line bg-bg scrollbar-thin transition-transform lg:sticky lg:h-[calc(100vh-3.5rem)] lg:translate-x-0 print:hidden ${open ? 'translate-x-0' : '-translate-x-full'}`}>
           <Sidebar />
         </aside>
         {open && <div className="fixed inset-0 top-14 z-10 bg-black/40 lg:hidden" onClick={() => setOpen(false)} />}
-        <main className="min-w-0 flex-1">{children}</main>
+        <main id="main-content" tabIndex={-1} className="min-w-0 flex-1 outline-none">{children}</main>
       </div>
       {searchOpen && <Search onClose={() => setSearchOpen(false)} />}
     </div>
@@ -66,8 +73,13 @@ function Sidebar() {
   const current = decodeURIComponent(loc.pathname).replace(/^\/+|\/+$/g, '')
   const currentModule = PAGES[current]?.module
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
+  const navRef = useRef<HTMLElement>(null)
+  // keep the lesson being read visible in the sidebar
+  useEffect(() => {
+    navRef.current?.querySelector('a[aria-current="page"]')?.scrollIntoView({ block: 'nearest' })
+  }, [current])
   return (
-    <nav className="px-3 py-4" aria-label="Curriculum">
+    <nav ref={navRef} className="px-3 py-4" aria-label="Curriculum">
       <div className="mb-3 grid grid-cols-2 gap-2">
         <Link to={routeHref('projects')} className="flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-2 text-[13px] font-semibold hover:border-accent"><FlaskConical className="size-4 text-accent" /> Projects</Link>
         <Link to={routeHref('glossary')} className="flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-2 text-[13px] font-semibold hover:border-accent"><BookMarked className="size-4 text-accent" /> Glossary</Link>

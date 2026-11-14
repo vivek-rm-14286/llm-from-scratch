@@ -7,7 +7,8 @@ export type PageMeta = {
   src: string; label: string; title: string; id: string
   module: string | null; moduleTitle: string | null; index: number | null
   headings: { id: string; level: number; text: string }[]
-  hasMath: boolean; hasMermaid: boolean; hasScript: boolean
+  hasMath: boolean; hasMermaid: boolean; hasScript: boolean; hasTasks: boolean; minutes: number
+  usedIn?: { route: string; title: string; note: string }[]
 }
 
 export const SITE = manifest.site as { title: string; description: string; repo: string }
@@ -37,3 +38,7 @@ export function loadPageHtml(meta: PageMeta): Promise<string> {
 }
 
 export const routeHref = (route: string) => `/${route}`
+
+export function fmtMinutes(m: number): string {
+  return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${m % 60 ? `${m % 60} min` : ''}`.trim()
+}

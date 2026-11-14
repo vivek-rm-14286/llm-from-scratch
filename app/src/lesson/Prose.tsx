@@ -6,7 +6,7 @@ const executedScripts = new Set<string>()
 const tok = (n: string) => getComputedStyle(document.documentElement).getPropertyValue(n).trim()
 
 /** Renders a compiled Markdown fragment and progressively enhances it (math, diagrams, code tools). */
-export const Prose = memo(function Prose({ html, meta }: { html: string; meta: PageMeta }) {
+export const Prose = memo(function Prose({ html, meta, route }: { html: string; meta: PageMeta; route: string }) {
   const ref = useRef<HTMLDivElement>(null)
   const { dark } = useTheme()
 
@@ -15,9 +15,18 @@ export const Prose = memo(function Prose({ html, meta }: { html: string; meta: P
     el.innerHTML = html
     addCopyButtons(el)
     addAnnotations(el)
+    addHeadingAnchors(el, route)
+    if (meta.hasTasks) enableTasks(el, route)
     if (meta.hasMath) void renderMath(el)
     if (meta.hasScript) runScripts(el)
-  }, [html, meta])
+  }, [html, meta, route])
+
+  // printing: open every collapsible so answers and details are on paper
+  useEffect(() => {
+    const open = () => ref.current?.querySelectorAll('details').forEach((d) => { d.open = true })
+    window.addEventListener('beforeprint', open)
+    return () => window.removeEventListener('beforeprint', open)
+  }, [])
 
   // diagrams depend on the theme, so they re-render when it changes
   useEffect(() => {
@@ -90,7 +99,12 @@ async function renderMermaid(el: HTMLElement, dark: boolean) {
       out.innerHTML = svg
       node.replaceWith(out)
     } catch {
-      node.dataset.src = src
+      // show the diagram source instead of an empty gap
+      const pre = document.createElement('pre')
+      pre.className = 'mermaid-failed'
+      pre.textContent = src
+      node.replaceWith(pre)
+      document.getElementById(`dmmd-${mermaidSeq}`)?.remove()
     }
   }
 }
@@ -170,5 +184,38 @@ function runScripts(el: HTMLElement) {
     const s = document.createElement('script')
     s.textContent = code
     old.replaceWith(s)
+  })
+}
+
+/** Hover "#" link on every section heading, for deep links. */
+function addHeadingAnchors(el: HTMLElement, route: string) {
+  el.querySelectorAll<HTMLElement>('h2[id], h3[id]').forEach((h) => {
+    const a = document.createElement('a')
+    a.className = 'h-anchor'
+    a.href = `#/${route}#${h.id}`
+    a.textContent = '#'
+    a.setAttribute('aria-label', 'Link to this section')
+    h.appendChild(a)
+  })
+}
+
+/** Checklists (the roadmap milestones) are tickable and remembered per browser. */
+const TASKS_KEY = 'llmfs-tasks-v1'
+function enableTasks(el: HTMLElement, route: string) {
+  let all: Record<string, number[]> = {}
+  try { all = JSON.parse(localStorage.getItem(TASKS_KEY) ?? '{}') as Record<string, number[]> } catch { /* ignore */ }
+  const checked = new Set(all[route] ?? [])
+  el.querySelectorAll<HTMLInputElement>('.task-list-item input[type="checkbox"]').forEach((box, i) => {
+    box.disabled = false
+    box.checked = checked.has(i)
+    box.closest('label')?.classList.add('cursor-pointer')
+    box.addEventListener('change', () => {
+      if (box.checked) checked.add(i); else checked.delete(i)
+      try {
+        const cur = JSON.parse(localStorage.getItem(TASKS_KEY) ?? '{}') as Record<string, number[]>
+        cur[route] = [...checked]
+        localStorage.setItem(TASKS_KEY, JSON.stringify(cur))
+      } catch { /* ignore */ }
+    })
   })
 }

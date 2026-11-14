@@ -8,10 +8,11 @@ tracks:
   blurb: From zero to a working transformer — the math, PyTorch, and every piece of a modern language model built by hand.
   modules:
   - title: Start Here
-    blurb: How the site is organised, a 21-week roadmap, and the hardware and budget you need.
+    blurb: How the site is organized, a 21-week roadmap, shorter paths for one goal, and the hardware and budget you need.
     lessons:
     - Overview: start/index.md
     - Learning Roadmap: start/roadmap.md
+    - Choose Your Path: start/paths.md
     - Setup, Hardware & Budget: start/setup.md
   - title: Foundations
     blurb: Linear algebra, gradients, PyTorch and backprop — only what you need, implemented by hand.
@@ -39,6 +40,7 @@ tracks:
     - Overview: pretraining/index.md
     - Data Pipelines: pretraining/data.md
     - The Training Loop: pretraining/training.md
+    - Debugging a Training Run: pretraining/debugging.md
     - Distributed Training: pretraining/distributed.md
     - GPU Performance Engineering: pretraining/gpu-performance.md
     - Evaluation: pretraining/evaluation.md
@@ -66,10 +68,11 @@ tracks:
   blurb: Serve models fast, ground them in your data, build agents on top, and ship them safely.
   modules:
   - title: Inference
-    blurb: Sampling, the KV cache, quantization, speculative decoding and serving stacks.
+    blurb: Sampling, the KV cache, batching and speculative decoding; then quantization, serving stacks and load testing.
     lessons:
     - Overview: inference/index.md
-    - Sampling, KV Cache & Quantization: inference/inference.md
+    - "Decoding: Sampling, KV Cache & Batching": inference/inference.md
+    - Quantization & Serving: inference/serving.md
   - title: RAG
     blurb: Embeddings, hybrid search, reranking, citations, permissions and evaluation.
     lessons:
@@ -116,6 +119,7 @@ tracks:
     - A Decision Model That Plays: projects/p4-decision-model.md
 reference:
 - Glossary: glossary.md
+- Cheat Sheet: cheatsheet.md
 - Resources: resources.md
 used_in:
   foundations/pytorch.md:
@@ -153,16 +157,24 @@ used_in:
   - {project: projects/p2-finetune.md, note: "train_qlora.py and merge_adapter.py"}
   inference/inference.md:
   - {project: projects/p1-500m-model.md, note: "chat.py: sampling with a KV cache"}
+  inference/serving.md:
   - {project: projects/p2-finetune.md, note: "serving the merged or quantized model"}
+  pretraining/debugging.md:
+  - {project: projects/p1-500m-model.md, note: "the checks to run before paying for the full pretraining run"}
   rag/fundamentals.md:
   - {project: projects/p3-rag.md, note: "ingest.py: chunking, embedding and indexing"}
   rag/advanced.md:
-  - {project: projects/p3-rag.md, note: "retrieve.py (hybrid search, reranking) and eval.py"}
+  - {project: projects/p3-rag.md, note: "retrieve.py (hybrid search, reranking), eval.py and finetune_embedder.py"}
   applications/prompting.md:
   - {project: projects/p2-finetune.md, note: "prompts.py and schema-validated JSON output"}
   - {project: projects/p3-rag.md, note: "generate.py builds the cited-answer prompt"}
   production/safety.md:
-  - {project: projects/p3-rag.md, note: "access levels and prompt injection through retrieved documents"}
+  - {project: projects/p3-rag.md, note: "guardrails.py and redteam.py: prompt injection through retrieved documents, measured"}
+  production/llmops.md:
+  - {project: projects/p3-rag.md, note: "eval.py --baseline and ci/eval-gate.yml: a regression gate for CI"}
+  applications/agents.md:
+  - {project: projects/p2-finetune.md, note: "the lab wraps the triage model as an agent tool"}
+  - {project: projects/p3-rag.md, note: "the lab wraps the /ask endpoint as a tool and an MCP server"}
   decision/rl-basics.md:
   - {project: projects/p4-decision-model.md, note: "env.py is a Gymnasium environment"}
   decision/policy-methods.md:

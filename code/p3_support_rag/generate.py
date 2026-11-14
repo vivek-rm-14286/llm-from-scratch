@@ -3,9 +3,11 @@ from __future__ import annotations
 
 import re
 
+import guardrails
 import settings
 
 ABSTAIN = "I don't have enough information in the available sources to answer that."
+REFUSAL = "I can't help with that request."
 
 SYSTEM_PROMPT = f"""You are a support engineer copilot for the product Nimbus Monitor.
 Answer the question using ONLY the numbered sources provided by the user.
@@ -44,9 +46,27 @@ def parse_citations(answer: str, n_sources: int) -> tuple[list[int], list[int]]:
     return valid, invalid
 
 
-def answer(question: str, chunks: list[dict], llm=None, model: str | None = None) -> dict:
+def _result(text: str, citations: list, invalid: list, guard: dict) -> dict:
+    return {"answer": text, "citations": citations, "invalid_citations": invalid,
+            "abstained": ABSTAIN.lower() in text.lower(), "guardrails": guard}
+
+
+def answer(question: str, chunks: list[dict], llm=None, model: str | None = None,
+           guard: bool | None = None) -> dict:
+    """Answer from the retrieved chunks. With guard on (the default, see settings.GUARDRAILS):
+    1. a question that looks like an injection attempt is refused without calling the LLM,
+    2. retrieved chunks that contain instructions aimed at the model are dropped from the prompt,
+    3. the answer is stripped of images, off-allowlist links and system-prompt text."""
+    guard = settings.GUARDRAILS if guard is None else guard
+    info = {"enabled": guard, "question_hits": [], "dropped_chunks": [], "output_findings": []}
+    if guard:
+        info["question_hits"] = guardrails.check_question(question)
+        if info["question_hits"]:
+            return _result(REFUSAL, [], [], info)
+        chunks, dropped = guardrails.filter_chunks(chunks)
+        info["dropped_chunks"] = [{"chunk_id": c["chunk_id"], "hits": c["guard_hits"]} for c in dropped]
     if not chunks:  # nothing the user is allowed to see matched: don't let the LLM guess
-        return {"answer": ABSTAIN, "citations": [], "invalid_citations": [], "abstained": True}
+        return _result(ABSTAIN, [], [], info)
     llm = llm or get_llm()
     resp = llm.chat.completions.create(
         model=model or settings.LLM_MODEL,
@@ -55,6 +75,10 @@ def answer(question: str, chunks: list[dict], llm=None, model: str | None = None
         max_tokens=600,
     )
     text = (resp.choices[0].message.content or "").strip()
+    if guard:
+        text, info["output_findings"] = guardrails.sanitize_answer(text, SYSTEM_PROMPT)
+        if "system_prompt_leak" in info["output_findings"]:
+            return _result(REFUSAL, [], [], info)
     valid, invalid = parse_citations(text, len(chunks))
     citations = [{
         "n": n,
@@ -64,9 +88,4 @@ def answer(question: str, chunks: list[dict], llm=None, model: str | None = None
         "section": chunks[n - 1]["section"],
         "url": chunks[n - 1]["url"],
     } for n in valid]
-    return {
-        "answer": text,
-        "citations": citations,
-        "invalid_citations": invalid,  # model cited a source that doesn't exist: flag it
-        "abstained": ABSTAIN.lower() in text.lower(),
-    }
+    return _result(text, citations, invalid, info)  # invalid: the model cited a source that doesn't exist

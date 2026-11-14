@@ -3,7 +3,7 @@
 A tiny original 2D game plus a complete decision-model pipeline:
 scripted expert → (optional) human demos → behavior cloning (+ DAgger) → PPO fine-tuning → evaluation → ONNX export.
 
-Full walkthrough: https://vivek-rm-14286.github.io/llm-from-scratch/projects/p4-decision-model/
+Full walkthrough: https://vivek-rm-14286.github.io/llm-from-scratch/#/projects/p4-decision-model
 
 ## The game
 
@@ -26,6 +26,8 @@ It has 9 discrete actions: coast, or thrust in one of 8 compass directions.
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt          # pygame/onnx are only needed for rendering/export
 ```
+
+Needs `torch>=2.5` (the ONNX export passes `dynamo=False`) and `gymnasium>=1.0`. Tested with Python 3.12, torch 2.15, gymnasium 1.4, onnx 1.23 and onnxruntime 1.32 on a laptop CPU.
 
 ## Pipeline
 
@@ -70,4 +72,4 @@ python export_onnx.py --policy checkpoints/smoke_ppo.pt --out checkpoints/smoke.
 
 - Rendering on Python 3.14 with some pygame wheels: the font module may fail to import. The renderer then skips the HUD text. `pygame-ce` or Python 3.12 avoids this.
 - Headless machines: `SDL_VIDEODRIVER=dummy python evaluate.py ... --render` runs the renderer without a window.
-- All evaluation uses seeds ≥ 100000, which training never uses.
+- `evaluate.py` uses seeds ≥ 100000, which training never uses. The quick greedy check printed during training uses seeds 10000-10019, and DAgger rollouts use seeds from 50000.

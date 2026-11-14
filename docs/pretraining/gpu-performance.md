@@ -457,7 +457,7 @@ Measure **tokens/sec and MFU** (formula in [The Training Loop](training.md#mfu-a
 - [ ] **Fused kernels for the remaining hot spots**: fused cross-entropy for large vocabularies, fused RMSNorm/SwiGLU/RoPE (Liger Kernel), or your own Triton.
 - [ ] **Distributed**: overlap communication with compute, and keep the all-reduce bucket sizes sensible. See [Distributed Training](distributed.md).
 
-Rough targets: a well-tuned dense transformer on a single A100/H100 reaches roughly 40-55% MFU. Under ~25%, something on this list is wrong.
+Rough targets: a dense transformer on a single A100/H100 reaches roughly 35-50% MFU when well tuned; below ~25% means something on this list is wrong.
 
 !!! warning "Common pitfalls"
     - **Timing without synchronizing.** CUDA launches are asynchronous. `time.time()` around a GPU op measures the launch, not the work. Call `torch.cuda.synchronize()` before reading the clock, or use `triton.testing.do_bench` / `torch.utils.benchmark`.

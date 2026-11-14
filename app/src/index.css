@@ -96,13 +96,6 @@ article table { max-width: 100%; }
   --hl-kw: #ff7b72; --hl-str: #a5d6ff; --hl-fn: #d2a8ff; --hl-num: #79c0ff; --hl-com: #8b949e;
   --hl-name: #e6edf3; --hl-op: #c9d1d9; --hl-special: #ffa657; --hl-gen: #7ee787; --hl-line: #2a2f1c;
 }
-:root {
-  /* names the Orbital Courier demo reads */
-  --md-default-fg-color: var(--text); --md-default-fg-color--light: var(--muted);
-  --md-default-fg-color--lighter: color-mix(in srgb, var(--muted) 55%, transparent);
-  --md-default-fg-color--lightest: var(--border); --md-code-bg-color: var(--code-bg);
-  --md-primary-fg-color: var(--accent); --md-primary-bg-color: #fff; --md-accent-fg-color: var(--accent);
-}
 
 /* ---------------------------------------------------------------------------
    .prose-lf — styles for the HTML compiled from docs/*.md
@@ -256,9 +249,6 @@ article table { max-width: 100%; }
 .prose-lf .grid.cards > ul > li > :first-child { margin-top: 0; }
 .prose-lf .grid.cards > ul > li > :last-child { margin-bottom: 0; }
 .prose-lf .grid.cards hr { margin: .6rem 0; }
-.prose-lf .md-button { display: inline-flex; align-items: center; gap: .5rem; border: 1px solid var(--border); border-radius: .5rem; padding: .55rem 1.1rem; font-weight: 600; color: var(--text); }
-.prose-lf .md-button:hover { border-color: var(--accent); text-decoration: none; }
-.prose-lf .md-button--primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 
 /* task lists, definitions, footnotes, math, diagrams */
 .prose-lf .task-list-item { list-style: none; margin-left: -1.4em; }
@@ -298,3 +288,4 @@ article table { max-width: 100%; }
   .prose-lf div.highlight, .prose-lf .admonition, .prose-lf details, .prose-lf table { break-inside: avoid; }
   .prose-lf a[href^="http"]::after { content: " (" attr(href) ")"; font-size: .8em; color: #555; word-break: break-all; }
 }
+.prose-lf.no-num > h2::before { display: none; }

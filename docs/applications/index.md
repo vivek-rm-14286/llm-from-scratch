@@ -76,7 +76,7 @@ flowchart LR
     M -.-> L[(Logs + traces for eval)]
 ```
 
-Each box is a place where quality is won or lost, and each one is covered somewhere on this site. Context assembly and output validation are covered on the prompting page, tools on the agents page, retrieval in the [RAG section](../rag/index.md), and input/output guardrails in [Safety & Production](../production/safety.md).
+Each box is a place where quality is won or lost, and each one is covered somewhere on this site. Context assembly and output validation are covered in [Prompt & Context Engineering](prompting.md), tools in [Agents & Tool Use](agents.md), retrieval in the [RAG section](../rag/index.md), and input/output guardrails in [Safety & Production](../production/safety.md).
 
 ## Pages in this section
 
@@ -92,12 +92,12 @@ Each box is a place where quality is won or lost, and each one is covered somewh
 
     ---
 
-    The agent loop, how tool calls are tokens in the chat template, ReAct, a minimal agent in about 100 lines of Python, the Model Context Protocol with a working server, multi-agent patterns, training models for tool use, agent evaluation and safety.
+    The agent loop, how tool calls are tokens in the chat template, ReAct, a minimal agent in about 100 lines of Python, the Model Context Protocol with a working server, multi-agent patterns, a worked tool-call training example, a task-success evaluation loop, safety, and a lab that wraps Projects 2 and 3 as tools.
 
 </div>
 
 ## Prerequisites
 
 - [Supervised Fine-Tuning](../post-training/sft.md), at least the section on chat templates.
-- [Sampling, KV Cache & Quantization](../inference/inference.md): you should know what logits, temperature and the KV cache are.
+- [Decoding: Sampling, KV Cache & Batching](../inference/inference.md): you should know what logits, temperature and the KV cache are.
 - [RAG Fundamentals](../rag/fundamentals.md) is helpful context for the agents page.

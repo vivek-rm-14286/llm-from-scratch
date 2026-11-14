@@ -36,13 +36,13 @@ The demo below is a JavaScript copy of the same game, simplified to 4 hazards an
 .oc-demo { max-width: 560px; margin: 1.2em auto; }
 .oc-bar { display: flex; flex-wrap: wrap; gap: .4em; margin-bottom: .5em; }
 .oc-bar button { flex: 1 1 auto; font: inherit; font-size: .72rem; padding: .45em .7em; border-radius: .3em; cursor: pointer;
-  border: 1px solid var(--md-primary-fg-color); color: var(--md-primary-fg-color); background: transparent; }
-.oc-bar button:hover, .oc-bar button.oc-on { background: var(--md-primary-fg-color); color: var(--md-primary-bg-color); }
+  border: 1px solid var(--accent); color: var(--accent); background: transparent; }
+.oc-bar button:hover, .oc-bar button.oc-on { background: var(--accent); color: var(--surface); }
 .oc-bar button:disabled { opacity: .5; cursor: wait; }
 .oc-canvas, .oc-chart { display: block; width: 100%; border-radius: .3em; }
-.oc-canvas { outline: 1px solid var(--md-default-fg-color--lightest); }
-.oc-canvas:focus { outline: 2px solid var(--md-accent-fg-color); }
-.oc-status { font-size: .68rem; min-height: 2.6em; margin: .4em 0; color: var(--md-default-fg-color--light); }
+.oc-canvas { outline: 1px solid var(--border); }
+.oc-canvas:focus { outline: 2px solid var(--accent); }
+.oc-status { font-size: .68rem; min-height: 2.6em; margin: .4em 0; color: var(--muted); }
 </style>
 <script>
 // ---- CORE (sim + policy + CEM); mirrored into the page ----
@@ -169,9 +169,9 @@ function initOrbitalDemo() {
     if (S.colors && now - S.colorsT < 500) return S.colors;
     var cs = getComputedStyle(root);
     function v(n, d) { var x = cs.getPropertyValue(n).trim(); return x || d; }
-    S.colors = { fg: v("--md-default-fg-color", "#222"), fgl: v("--md-default-fg-color--lighter", "rgba(0,0,0,.3)"),
-                 bg: v("--md-code-bg-color", "#f5f5f5"), primary: v("--md-primary-fg-color", "#673ab7"),
-                 accent: v("--md-accent-fg-color", "#ffc107"), hazard: "#e5484d" };
+    S.colors = { fg: v("--text", "#222"), fgl: v("--muted", "#888"),
+                 bg: v("--code-bg", "#f5f5f5"), primary: v("--accent", "#2563c9"),
+                 accent: "#e0a100", hazard: "#e5484d" };
     S.colorsT = now;
     return S.colors;
   }
@@ -311,23 +311,16 @@ if (!window.__ocKeys) {
   window.addEventListener("keydown", function (e) { if (window.__ocDemo) window.__ocDemo.key(e, true); });
   window.addEventListener("keyup", function (e) { if (window.__ocDemo) window.__ocDemo.key(e, false); });
 }
-window.__ocInit = initOrbitalDemo;
-function bootOrbitalDemo() {
-  window.__ocInit();
-  if (window.document$ && typeof window.document$.subscribe === "function" && !window.__ocSub) {
-    window.__ocSub = true;  // Material instant navigation: re-init on every page swap (guarded inside)
-    window.document$.subscribe(function () { window.__ocInit(); });
-  }
-}
-if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", bootOrbitalDemo);
-else bootOrbitalDemo();
+window.__ocInit = initOrbitalDemo;  // the app calls this again each time the page is shown (guarded inside)
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", initOrbitalDemo);
+else initOrbitalDemo();
 </script>
 
 What to notice while it trains:
 
 - The first generations crash or coast. Then they learn "move toward the package". Avoiding hazards comes later, because it only matters once the agent survives long enough to meet them.
 - The best candidate's score (thin line) is noisy because it is measured on only 3 levels. The elite mean (bold) is the better progress signal.
-- Training directly on the reward with a black-box optimizer works for 505 weights. It does not scale to the 20k-parameter policy below, which is why the Python version uses gradients: BC and then PPO.
+- Training directly on the reward with a black-box optimizer works for 505 weights. Black-box search needs many more episodes as the parameter count grows, so for the 23k-parameter policy below the Python version uses gradients: BC and then PPO.
 
 ## The design
 
@@ -415,7 +408,7 @@ def _hazard_rays(self):
     return np.minimum(dist.min(1), RAY_RANGE)
 ```
 
-Running `python env.py` calls Gymnasium's `check_env` and plays one random episode. The random agent typically crashes within about 100 steps with a return around −12.
+Running `python env.py` calls Gymnasium's `check_env` and plays one random episode. The random agent typically crashes within about 100 steps with a return around −10.
 
 Rendering is a separate concern. `pygame` is imported lazily inside `render()`, so training never needs a display.
 
@@ -482,7 +475,7 @@ for it in range(args.dagger_iters):
     fit(policy, obs, acts, ...)
 ```
 
-A surprise you will see in the log: **validation accuracy is only about 40%**, yet the cloned policy succeeds on about 94% of levels. The expert is a bang-bang controller. When the drone is near its desired velocity, neighboring thrust directions (N vs NE) score almost the same, and the expert's choice between them flips back and forth. Those "errors" barely change the trajectory. This is the lesson from [Imitation Learning](../decision/imitation.md): **per-step accuracy is a weak proxy. Judge the policy by closed-loop rollouts.**
+A surprise you will see in the log: **validation accuracy is only about 45-55%** (about 45% after plain BC, a little higher after the DAgger rounds), yet the cloned policy succeeds on about 94% of levels. The expert is a bang-bang controller. When the drone is near its desired velocity, neighboring thrust directions (N vs NE) score almost the same, and the expert's choice between them flips back and forth. Those "errors" barely change the trajectory. This is the lesson from [Imitation Learning](../decision/imitation.md): **per-step accuracy is a weak proxy. Judge the policy by closed-loop rollouts.**
 
 ### `train_ppo.py`: PPO fine-tuning from the BC policy
 
@@ -515,7 +508,7 @@ if not warmup and approx_kl > args.target_kl:                      # (3)!
 2. **Critic warmup.** For the first few iterations only the value function trains. A random critic produces garbage advantages, and a few policy updates with garbage advantages can wreck a good BC policy.
 3. **KL early stopping.** Stop the update epochs once the new policy has moved too far from the rollout policy. This plays the role of RLHF's KL penalty: improve, but do not wander far from a competent initialization.
 
-Time-limit truncations are bootstrapped (`r += γ·V(s_final)`), and the GAE recursion resets at episode boundaries, exactly as on the PPO page.
+Time-limit truncations are bootstrapped (`r += γ·V(s_final)`), and the GAE recursion resets at episode boundaries, exactly as in [DQN & PPO](../decision/policy-methods.md#a-compact-ppo-in-pytorch).
 
 ### `evaluate.py`: honest evaluation
 
@@ -550,16 +543,16 @@ torch.onnx.export(policy, (torch.zeros(1, OBS_DIM),), args.out,
 sess = ort.InferenceSession(args.out, so, providers=["CPUExecutionProvider"])
 ```
 
-The script checks that ONNX Runtime and PyTorch produce the same logits (max difference around 1e-6 and the same argmax), then times a single-observation forward pass. On a laptop CPU we measured about **18 µs per step in PyTorch eager and about 7 µs in ONNX Runtime**. That is under 0.1% of a 60 Hz frame budget (16.7 ms). A decision model this size could run hundreds of agents per frame, or drive a 1 kHz control loop. This is the [System 1](../decision/system-one.md) end of the spectrum: fixed, tiny compute per decision. Compare it with the hundreds of milliseconds a [decision language model](../decision/routing-models.md#decision-language-models) needs for one choice, and with the seconds a reasoning model spends.
+The script checks that ONNX Runtime and PyTorch produce the same logits (max difference around 1e-6 and the same argmax), then times a single-observation forward pass. On a laptop CPU this takes about **18 µs per step in PyTorch eager and about 7 µs in ONNX Runtime**. That is under 0.1% of a 60 Hz frame budget (16.7 ms). A decision model this size could run hundreds of agents per frame, or drive a 1 kHz control loop. This is the [System 1](../decision/system-one.md) end of the spectrum: fixed, tiny compute per decision. Compare it with the tens of milliseconds a [decision language model](../decision/routing-models.md#decision-language-models) needs for one choice, and with the seconds a reasoning model spends.
 
 !!! note "`dynamo=False`"
-    PyTorch 2.9 and later default to the new `torch.export`-based ONNX exporter. The script pins the legacy TorchScript exporter, which is simpler for a plain MLP and works on older versions. Both produce equivalent graphs for this model.
+    PyTorch 2.9 and later default to the new `torch.export`-based ONNX exporter. The script pins the legacy TorchScript exporter, which is simpler for a plain MLP. The `dynamo` argument exists from PyTorch 2.5, which is why `requirements.txt` asks for `torch>=2.5`. Both exporters produce equivalent graphs for this model.
 
 ## Running it
 
 ```bash
 cd code/p4_game_agent
-pip install -r requirements.txt
+uv pip install -r requirements.txt
 python expert.py --episodes 200 --out demos/expert.npz
 python train_bc.py --demos "demos/*.npz" --epochs 30 --dagger-iters 3 --out checkpoints/bc.pt
 python train_ppo.py --init checkpoints/bc.pt --iters 150 --out checkpoints/ppo.pt
@@ -584,7 +577,7 @@ The repository [README](https://github.com/vivek-rm-14286/llm-from-scratch/tree/
 - [ ] You recorded at least 5 episodes of your own play with `play_record.py`
 - [ ] A BC policy trained only on your demos completes at least one level, and you can see your own habits in it
 - [ ] BC on expert demos reaches at least 85% success. Compare it with and without DAgger.
-- [ ] PPO from BC keeps or improves success while shortening episodes. Plot the return per iteration.
+- [ ] PPO from BC shortens episodes while keeping success within a few points of BC. Plot the return per iteration.
 - [ ] PPO from scratch, for comparison: how many iterations does it need to match BC's starting point?
 - [ ] `evaluate.py --render` shows the agent dodging hazards
 - [ ] ONNX export matches PyTorch, and you measured per-step latency (mean and p99)
@@ -604,7 +597,7 @@ The repository [README](https://github.com/vivek-rm-14286/llm-from-scratch/tree/
 ??? question "Why does the observation include velocity? What would happen without it?"
     Without velocity the state is not Markov: two identical ray readings could call for opposite thrusts depending on whether the drone is already moving fast toward a hazard. The policy would have to infer velocity from history, which an MLP without memory cannot do. You would need frame stacking or a recurrent policy.
 
-??? question "Validation accuracy of the BC policy is about 40%, but it succeeds on about 94% of levels. How?"
+??? question "Validation accuracy of the BC policy is about 45-55%, but it succeeds on about 94% of levels. How?"
     Many expert "decisions" are near-ties between neighboring thrust directions, and they lead to almost identical trajectories, so per-step mismatches rarely matter. What matters is closed-loop behavior, which is why you evaluate by rollouts.
 
 ??? question "Why warm up the critic before updating a BC-initialized actor?"

@@ -11,6 +11,9 @@ SFT teaches the model to imitate good answers. But "good" is a matter of degree,
     - IPO, KTO, ORPO, SimPO in one paragraph each
     - How preference data is collected (UltraFeedback-style), and the two classic failure modes: reward hacking and length bias
 
+!!! info "Prerequisite: policy gradients and PPO"
+    The [RLHF with PPO](#rlhf-with-ppo) section uses REINFORCE, advantages, GAE and PPO's clipped objective, which the Decision Models track derives later in the curriculum. The [policy-gradient recap](index.md#policy-gradients-in-150-words) on the Post-training overview is enough to follow this page. For the full derivations read [Deriving REINFORCE](../decision/policy-methods.md#deriving-reinforce), [Baselines, advantages and actor-critic](../decision/policy-methods.md#baselines-advantages-and-actor-critic), [Generalized Advantage Estimation (GAE)](../decision/policy-methods.md#generalized-advantage-estimation-gae) and [The clipped surrogate objective](../decision/policy-methods.md#the-clipped-surrogate-objective). The reward-model and DPO sections need none of it.
+
 ## Preference data
 
 A preference example is a triple: a prompt $x$, a preferred ("chosen", "winning") response $y_w$, and a dispreferred ("rejected", "losing") response $y_l$.
@@ -53,7 +56,7 @@ The second form follows by dividing top and bottom by $e^{r(x,y_w)}$: you get $1
 
 ### Deriving the loss
 
-We parameterize $r_\phi(x,y)$ with a neural network and fit it by maximum likelihood on the observed preferences. The likelihood of the dataset is $\prod \sigma(r_\phi(x,y_w) - r_\phi(x,y_l))$; take the negative log and average:
+Parameterize $r_\phi(x,y)$ with a neural network and fit it by maximum likelihood on the observed preferences. The likelihood of the dataset is $\prod \sigma(r_\phi(x,y_w) - r_\phi(x,y_l))$; take the negative log and average:
 
 $$
 \mathcal{L}_{\text{RM}}(\phi) = -\mathbb{E}_{(x,y_w,y_l)}\Big[\log \sigma\big(r_\phi(x,y_w) - r_\phi(x,y_l)\big)\Big]
@@ -69,7 +72,7 @@ Read it as: push the chosen reward up and the rejected reward down, weighted by 
 
 ### Reward model code
 
-A reward model is an LM with the vocabulary head replaced by a single scalar head. We read the score off the **last non-padding token**, since in a causal model that's the only position that has seen the whole response.
+A reward model is an LM with the vocabulary head replaced by a single scalar head. The score is read off the **last non-padding token**, since in a causal model that's the only position that has seen the whole response.
 
 ```python title="reward_model.py"
 import torch
@@ -77,7 +80,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class RewardModel(nn.Module):
-    """Wrap a GPT whose forward(idx) returns logits. We swap lm_head for Identity
+    """Wrap a GPT whose forward(idx) returns logits. lm_head is swapped for Identity
     so forward returns final hidden states (B, T, d_model)."""
     def __init__(self, gpt, d_model):
         super().__init__()
@@ -119,7 +122,7 @@ $$
 
 The first term says "produce responses the RM likes". The second keeps the policy close to $\pi_{\text{ref}}$, the frozen SFT model. Without it, the policy finds outputs the RM scores highly but that are nonsense (the RM was only trained on reasonable responses and is unreliable far from them).
 
-PPO (from [DQN & PPO](../decision/policy-methods.md)) treats generation as an episode: the state is the prompt plus tokens so far, each action is a token, and the episode ends at the end-of-turn token. Four models are in play:
+PPO (derived in [DQN & PPO](../decision/policy-methods.md#ppo-proximal-policy-optimization)) treats generation as an episode: the state is the prompt plus tokens so far, each action is a token, and the episode ends at the end-of-turn token. Four models are in play:
 
 ```mermaid
 flowchart TD
@@ -172,7 +175,7 @@ $$
 J(\pi) = \sum_y \pi(y\mid x)\Big[\beta\log\frac{\pi^*(y\mid x)}{\pi(y\mid x)} + \beta\log Z(x)\Big] = -\beta\,\mathbb{D}_{\mathrm{KL}}\big[\pi \,\|\, \pi^*\big] + \beta\log Z(x)
 $$
 
-$Z(x)$ doesn't depend on $\pi$, and KL is minimized (at zero) exactly when $\pi = \pi^*$. So $\pi^*$ is the optimal policy. It's the reference model reweighted by exponentiated reward. We can't use it directly ($Z$ sums over all possible strings), but we can invert it.
+$Z(x)$ doesn't depend on $\pi$, and KL is minimized (at zero) exactly when $\pi = \pi^*$. So $\pi^*$ is the optimal policy. It's the reference model reweighted by exponentiated reward. It can't be used directly ($Z$ sums over all possible strings), but it can be inverted.
 
 ### Step 2: reward in terms of policy
 
@@ -192,7 +195,7 @@ $$
 P(y_w \succ y_l \mid x) = \sigma\Big(\beta\log\frac{\pi^*(y_w\mid x)}{\pi_{\text{ref}}(y_w\mid x)} - \beta\log\frac{\pi^*(y_l\mid x)}{\pi_{\text{ref}}(y_l\mid x)}\Big)
 $$
 
-Now replace $\pi^*$ with our trainable $\pi_\theta$ and maximize the likelihood of the preference data:
+Now replace $\pi^*$ with the trainable $\pi_\theta$ and maximize the likelihood of the preference data:
 
 $$
 \boxed{\mathcal{L}_{\text{DPO}}(\theta) = -\mathbb{E}_{(x,y_w,y_l)}\Big[\log\sigma\Big(\beta\log\frac{\pi_\theta(y_w\mid x)}{\pi_{\text{ref}}(y_w\mid x)} - \beta\log\frac{\pi_\theta(y_l\mid x)}{\pi_{\text{ref}}(y_l\mid x)}\Big)\Big]}
@@ -215,7 +218,7 @@ Increase the likelihood of the chosen response, decrease the rejected one, weigh
 
 ## DPO from scratch
 
-The core primitive is the summed log-probability of the response tokens given the prompt. We reuse the label-masking convention from [SFT](sft.md#loss-masking-train-on-answers-not-questions): prompt and padding positions are `-100`.
+The core primitive is the summed log-probability of the response tokens given the prompt. It reuses the label-masking convention from [SFT](sft.md#loss-masking-train-on-answers-not-questions): prompt and padding positions are `-100`.
 
 ```python title="dpo.py"
 import torch
@@ -250,7 +253,7 @@ def dpo_loss(pi_w, pi_l, ref_w, ref_l, beta=0.1):
 
 def dpo_step(policy, ref_model, opt, batch, beta=0.1):
     """batch: chosen_ids, chosen_labels, rejected_ids, rejected_labels, each (B, T),
-    all padded to the same T so we can run one concatenated forward pass."""
+    all padded to the same T so one concatenated forward pass covers both."""
     ids = torch.cat([batch["chosen_ids"], batch["rejected_ids"]], dim=0)
     labels = torch.cat([batch["chosen_labels"], batch["rejected_labels"]], dim=0)
     B = batch["chosen_ids"].size(0)
@@ -290,7 +293,7 @@ opt = torch.optim.AdamW(policy.parameters(), lr=5e-7)  # (1)!
 
 ## DPO with TRL
 
-The TRL version, written for **TRL ≥ 0.20** (`pip install "trl>=0.20"`):
+The TRL version, written for **TRL 1.x** on transformers v5 (the `DPOConfig` / `DPOTrainer` API has been stable since TRL 0.20; `pip install -U trl`). On transformers 4.x, replace `warmup_steps=0.1` with `warmup_ratio=0.1`: v5 removed `warmup_ratio` and reads a fractional `warmup_steps` as a share of total steps.
 
 ```python title="trl_dpo.py"
 from datasets import load_dataset
@@ -310,7 +313,7 @@ config = DPOConfig(
     loss_type="sigmoid",          # standard DPO; "ipo" etc. also available
     learning_rate=5e-7,
     lr_scheduler_type="cosine",
-    warmup_ratio=0.1,
+    warmup_steps=0.1,             # a float below 1 is a fraction of total steps
     num_train_epochs=1,
     per_device_train_batch_size=4,
     gradient_accumulation_steps=8,
@@ -331,11 +334,11 @@ trainer = DPOTrainer(
 trainer.train()
 ```
 
-TRL logs `rewards/chosen`, `rewards/rejected`, `rewards/accuracies`, and `rewards/margins`: the same diagnostics as our from-scratch `dpo_loss`. Healthy runs show accuracy climbing well above 0.5 and margins growing steadily, not exploding.
+TRL logs `rewards/chosen`, `rewards/rejected`, `rewards/accuracies`, and `rewards/margins`: the same diagnostics as the from-scratch `dpo_loss`. Healthy runs show accuracy climbing well above 0.5 and margins growing steadily, not exploding.
 
 ## Variants in brief
 
-DPO spawned a zoo. The ones worth knowing (TRL implements all of them; in recent releases `ORPOTrainer` and `CPOTrainer` live in `trl.experimental`, so check the import path for your version):
+DPO spawned a zoo. The ones worth knowing (TRL implements all of them; in TRL 1.x `ORPOTrainer` and `CPOTrainer` are imported from `trl.experimental.orpo` and `trl.experimental.cpo`):
 
 **IPO** (Identity Preference Optimization, Azar et al.). DPO can overfit when preferences are near-deterministic: it keeps pushing the margin toward infinity. IPO replaces the log-sigmoid with a squared loss that regresses the log-ratio margin $h$ to a fixed target: $\big(h - \tfrac{1}{2\beta}\big)^2$. Use `loss_type="ipo"` in `DPOConfig`.
 

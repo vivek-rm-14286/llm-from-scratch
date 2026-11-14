@@ -40,14 +40,20 @@ Autoregressive
 Backpropagation
 :   The algorithm for computing gradients of a loss with respect to every parameter by applying the chain rule from the output backward. See [Neural Networks](foundations/neural-networks.md#backpropagation-derived).
 
+Bandit (multi-armed bandit)
+:   The simplest RL problem: repeated choices among options with unknown payoffs and no state, which isolates the explore/exploit trade-off. A contextual bandit also sees a feature vector each round. See [RL Basics](decision/rl-basics.md#multi-armed-bandits-exploration-in-its-purest-form).
+
 Base model
-:   A model after pretraining only, before instruction tuning. It continues text rather than following instructions. See [Pretraining](pretraining/index.md).
+:   A model after pretraining only, before any post-training such as SFT. It continues text rather than following instructions. See [Pretraining](pretraining/index.md).
 
 Batch size
 :   The number of examples (or, for LLMs, tokens) used to compute one gradient update. See [The Training Loop](pretraining/training.md).
 
 Behavior cloning
 :   Imitation learning by supervised learning on (state, expert action) pairs. See [Imitation Learning](decision/imitation.md).
+
+Bellman equation
+:   The recursion that defines a value function: the value of a state or action equals the expected immediate reward plus the discounted value of what follows. The optimality version takes a max over next actions and is what Q-learning and DQN solve. See [RL Basics](decision/rl-basics.md#bellman-equations).
 
 bfloat16 (bf16)
 :   A 16-bit floating-point format with the same exponent range as fp32 but fewer mantissa bits. The default for training on modern GPUs. See [Python & PyTorch](foundations/pytorch.md#dtypes).
@@ -62,6 +68,9 @@ Broadcasting
 :   Automatic expansion of size-1 dimensions so tensors of different shapes can be combined elementwise. See [Python & PyTorch](foundations/pytorch.md#broadcasting).
 
 ## C
+
+Calibration
+:   The property that predicted probabilities match observed frequencies: of the predictions made with confidence 0.8, about 80% are correct. Measured with ECE and usually fixed with temperature scaling, which divides the logits by one scalar fitted on held-out data. See [Routing & Classification](decision/routing-models.md#calibration).
 
 Canary deployment
 :   Sending a small share of live traffic to a new model version and comparing its metrics with the current version before a full rollout. See [LLMOps](production/llmops.md).
@@ -104,11 +113,17 @@ Cross-entropy
 
 ## D
 
+DAgger (dataset aggregation)
+:   An imitation-learning algorithm that runs the learner, asks the expert to label the states the learner visited, adds them to the dataset, and retrains. It fixes the distribution shift of plain behavior cloning. See [Imitation Learning](decision/imitation.md#dagger-dataset-aggregation).
+
 DARE
 :   Drop And REscale: randomly zeroing a fraction p of a task vector's entries and scaling the rest by 1/(1-p) before merging, to reduce interference. See [Continued Pretraining & Model Merging](finetuning/merging-continued-pretraining.md).
 
 Data parallelism (DDP)
 :   Training with a copy of the model on each GPU, each processing different data, and averaging gradients. See [Distributed Training](pretraining/distributed.md).
+
+Decision Transformer
+:   A GPT-style model trained on logged trajectories of (return-to-go, state, action) tokens to predict the next action. At test time you condition it on the return you want. See [Imitation Learning](decision/imitation.md#the-decision-transformer-rl-as-sequence-modeling).
 
 Decoder-only
 :   A transformer with only causally masked self-attention blocks, as in GPT, Llama, and Qwen. See [The Transformer](llm/transformer.md).
@@ -116,8 +131,8 @@ Decoder-only
 Deduplication
 :   Removing exact or near-duplicate documents from training data. See [Data Pipelines](pretraining/data.md).
 
-Distillation
-:   Training a smaller "student" model to match a larger "teacher" model's outputs or output distributions.
+Distillation (knowledge distillation)
+:   Training a smaller student model to match a larger teacher's output distribution (soft targets) or generations. This is how many strong SLMs are built, and how a slow decision-maker is turned into a fast policy. See [Distillation & Synthetic Data](post-training/distillation-synthetic-data.md) and [System 1 & System 2 Models](decision/system-one.md#1-imitation-of-a-slow-expert-distillation).
 
 DPO (direct preference optimization)
 :   A method that trains directly on preference pairs with a classification-style loss, without a separate reward model or RL loop. See [Preference Optimization](post-training/preference.md).
@@ -129,6 +144,9 @@ Dropout
 :   Randomly zeroing activations during training to reduce overfitting. See [Neural Networks](foundations/neural-networks.md#regularization).
 
 ## E
+
+ECE (expected calibration error)
+:   The sample-weighted average gap between confidence and accuracy across confidence bins. Zero means perfectly calibrated. See [Routing & Classification](decision/routing-models.md#reliability-diagrams-and-ece).
 
 Einsum
 :   Einstein summation notation for tensor contractions, e.g. `"bhqd,bhkd->bhqk"`. See [Python & PyTorch](foundations/pytorch.md#einsum).
@@ -143,7 +161,7 @@ Entropy
 :   The expected surprise of a distribution, $-\sum p \log p$. Used as an exploration bonus in RL. See [Math](foundations/math.md#entropy).
 
 Episode
-:   One run of an RL agent in an environment from start to termination. See [RL Basics](decision/rl-basics.md).
+:   One run of an RL agent in an environment, from reset until it terminates (a real end state) or is truncated (for example by a time limit). See [RL Basics](decision/rl-basics.md).
 
 Epoch
 :   One full pass over the training dataset.
@@ -172,6 +190,9 @@ Function calling
 :   A model emitting a structured tool call (a tool name plus JSON arguments) instead of text. The application runs the tool and returns the result to the model. Also called tool calling. See [Agents & Tool Use](applications/agents.md).
 
 ## G
+
+GAE (generalized advantage estimation)
+:   An advantage estimate that sums discounted one-step TD errors with weight $(\gamma\lambda)^l$. The parameter $\lambda$ trades the bias of a one-step estimate against the variance of a full Monte Carlo return. See [DQN & PPO](decision/policy-methods.md#generalized-advantage-estimation-gae).
 
 GELU
 :   Gaussian Error Linear Unit, a smooth ReLU-like activation used in GPT-2 and BERT. See [Neural Networks](foundations/neural-networks.md#activation-functions).
@@ -233,10 +254,10 @@ KL divergence
 :   A measure of how one probability distribution differs from another; asymmetric and non-negative. Used as a penalty in RLHF and PPO. See [Math](foundations/math.md#kl-divergence).
 
 Knowledge distillation
-:   Training a smaller student model to match a larger teacher's output distribution (soft targets) or generations. This is how many strong SLMs are built. See [Distillation & Synthetic Data](post-training/distillation-synthetic-data.md).
+:   See Distillation.
 
 KV cache
-:   Stored keys and values for past tokens during generation, so each new token does not recompute them. See [Sampling, KV Cache & Quantization](inference/inference.md).
+:   Stored keys and values for past tokens during generation, so each new token does not recompute them. See [Decoding: Sampling, KV Cache & Batching](inference/inference.md).
 
 ## L
 
@@ -356,7 +377,7 @@ QLoRA
 :   LoRA on top of a base model quantized to 4-bit, allowing fine-tuning of large models on a single GPU. See [LoRA & QLoRA](finetuning/lora-qlora.md).
 
 Quantization
-:   Storing weights (and sometimes activations) in fewer bits, e.g. int8 or 4-bit, to reduce memory and speed up inference. See [Sampling, KV Cache & Quantization](inference/inference.md).
+:   Storing weights (and sometimes activations) in fewer bits, e.g. int8 or 4-bit, to reduce memory and speed up inference. See [Quantization & Serving](inference/serving.md#quantization).
 
 ## R
 
@@ -414,7 +435,7 @@ RWKV
 ## S
 
 Sampling
-:   Choosing the next token from the model's distribution, controlled by temperature, top-k, and top-p. See [Sampling, KV Cache & Quantization](inference/inference.md).
+:   Choosing the next token from the model's distribution, controlled by temperature, top-k, and top-p. See [Decoding: Sampling, KV Cache & Batching](inference/inference.md).
 
 Scaling laws
 :   Empirical power-law relationships between loss and model size, data, and compute. See [Scaling Laws & Compute](llm/scaling-laws.md).
@@ -485,7 +506,7 @@ Tokenizer
 :   The component that converts text to token IDs and back. See [Tokenization](llm/tokenization.md).
 
 Top-k / top-p sampling
-:   Restricting sampling to the $k$ most likely tokens, or to the smallest set whose probabilities sum to $p$ (nucleus sampling). See [Sampling, KV Cache & Quantization](inference/inference.md).
+:   Restricting sampling to the $k$ most likely tokens, or to the smallest set whose probabilities sum to $p$ (nucleus sampling). See [Decoding: Sampling, KV Cache & Batching](inference/inference.md).
 
 Transformer
 :   The architecture of attention and MLP blocks with residual connections underlying modern language models. See [The Transformer](llm/transformer.md).

@@ -12,6 +12,9 @@ Until 2024, the main lever for a smarter model was a bigger model trained on mor
     - The DeepSeek-R1 / R1-Zero story, and distilling reasoning into small models
     - Reward design pitfalls that silently ruin runs
 
+!!! info "Prerequisite: policy gradients and PPO"
+    GRPO is a policy-gradient method built on PPO, and the Decision Models track that derives both comes later in the curriculum. The [policy-gradient recap](index.md#policy-gradients-in-150-words) on the Post-training overview covers what this page assumes. For the derivations read [Deriving REINFORCE](../decision/policy-methods.md#deriving-reinforce), [Baselines, advantages and actor-critic](../decision/policy-methods.md#baselines-advantages-and-actor-critic) and [The clipped surrogate objective](../decision/policy-methods.md#the-clipped-surrogate-objective); [GAE](../decision/policy-methods.md#generalized-advantage-estimation-gae) is the critic-based advantage estimate that GRPO replaces with a group average.
+
 ## System 1 vs. System 2
 
 A standard chat model answers the way you answer "2 + 2": one fast pass, no deliberation. That's **System 1** thinking in Kahneman's terms. Hard problems need **System 2**: slow, explicit, step-by-step reasoning where you can catch your own mistakes.
@@ -235,7 +238,7 @@ A training loop is then just: for each (prompt, gold) pair, call `grpo_step(poli
 
 ## GRPO with TRL
 
-For real runs, TRL's `GRPOTrainer` handles batching across prompts, multiple generations, optional vLLM-backed generation, and the loss variants. Written for **TRL ≥ 0.20** (`pip install "trl>=0.20" math-verify`; add `vllm` for fast generation).
+For real runs, TRL's `GRPOTrainer` handles batching across prompts, multiple generations, optional vLLM-backed generation, and the loss variants. Written for **TRL 1.x** (the `GRPOConfig` / `GRPOTrainer` arguments below have been stable since TRL 0.20; `pip install -U trl`, and add `vllm` for fast generation).
 
 Reward functions receive the generated `completions` plus every dataset column as keyword arguments, and return one float per completion. With a conversational dataset, each completion is a list of messages.
 

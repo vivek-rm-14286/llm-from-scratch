@@ -13,6 +13,8 @@ export function PageView({ route, meta }: { route: string; meta: PageMeta }) {
   const { prev, next } = neighbours(route)
   const isLesson = meta.module !== null
   const sections = meta.headings.filter((h) => h.level === 2)
+  // pages that number their own sections ("0. Setup", "Part A") skip the automatic numbers
+  const ownNumbers = sections.filter((h) => /^(\d+\.|Part\s)/.test(h.text)).length >= 2
 
   useEffect(() => { document.title = `${meta.title} · LLM From Scratch` }, [meta])
   useEffect(() => { let live = true; void loadPageHtml(meta).then((h) => { if (live) setHtml(h) }); return () => { live = false } }, [meta])
@@ -45,7 +47,7 @@ export function PageView({ route, meta }: { route: string; meta: PageMeta }) {
           <h1 className="mt-1 text-3xl font-bold tracking-tight sm:text-4xl">{meta.title}</h1>
         </header>
 
-        {html === null ? <p className="font-mono text-xs text-muted">Loading…</p> : <Prose html={html} meta={meta} route={route} />}
+        {html === null ? <p className="font-mono text-xs text-muted">Loading…</p> : <Prose html={html} meta={meta} route={route} numbered={!ownNumbers} />}
 
         {html !== null && meta.usedIn && meta.usedIn.length > 0 && (
           <section className="mt-12 rounded-xl border border-line bg-surface px-5 py-4" aria-label="Used in">
@@ -76,7 +78,7 @@ export function PageView({ route, meta }: { route: string; meta: PageMeta }) {
           </nav>
         </footer>
       </article>
-      {sections.length > 2 && <Toc route={route} sections={sections} ready={html !== null} />}
+      {sections.length > 2 && <Toc route={route} sections={sections} ready={html !== null} numbered={!ownNumbers} />}
     </div>
   )
 }

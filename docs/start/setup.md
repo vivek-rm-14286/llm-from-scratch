@@ -7,6 +7,7 @@ Before you train anything, you need three things: a reproducible Python environm
     - The four hardware tiers this site targets and what each can realistically do
     - How to calculate GPU memory for training and for inference: weights, gradients, optimizer state, activations, KV cache
     - How to estimate the compute time and cost of a run before launching it
+    - How to run a multi-hour job on a rented node: tmux, checkpoint sync, spot auto-resume, cost caps
     - How to set up experiment tracking and the Hugging Face Hub
 
 ## The Python environment
@@ -23,6 +24,8 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 uv init llm-lab --python 3.12
 cd llm-lab
 ```
+
+The project code is tested on Python 3.12-3.14. Use 3.12 if you want pygame rendering in Project 4.
 
 ### Install PyTorch for your accelerator
 
@@ -98,7 +101,7 @@ Run it with `uv run python check_device.py`.
 
 ## Hardware tiers
 
-The site is written for four tiers. Each project says which tier it needs.
+The site is written for four tiers. Each project states the hardware it needs.
 
 | Tier | Example | Memory | Good for |
 |------|---------|--------|----------|
@@ -180,13 +183,13 @@ def inference_memory_gb(n_params, bytes_per_param, n_layers, n_kv_heads,
     kv = 2 * n_layers * n_kv_heads * d_head * seq_len * batch * kv_bytes
     return weights / 1e9, kv / 1e9
 
-# A ~500M model: 24 layers, d_model 1280 (illustrative config)
-s, a = training_memory_gb(500e6, n_layers=24, d_model=1280,
+# Project 1's model: 486.6M parameters, 32 layers, d_model 1024, 4 KV heads of dim 64
+s, a = training_memory_gb(486.6e6, n_layers=32, d_model=1024,
                           seq_len=2048, micro_batch=8)
 print(f"train: states {s:.1f} GB + activations {a:.1f} GB")
 
-w, kv = inference_memory_gb(500e6, 2, n_layers=24, n_kv_heads=4,
-                            d_head=64, seq_len=4096, batch=16)
+w, kv = inference_memory_gb(486.6e6, 2, n_layers=32, n_kv_heads=4,
+                            d_head=64, seq_len=2048, batch=16)
 print(f"infer: weights {w:.1f} GB + KV cache {kv:.1f} GB")
 ```
 
@@ -194,7 +197,7 @@ Real usage will be somewhat higher than the estimate. Measure with `torch.cuda.m
 
 ### Fine-tuning memory (LoRA and QLoRA)
 
-With LoRA, the base model is frozen, so it needs no gradients or optimizer state: only the small adapter matrices do. With QLoRA, the frozen base is also stored in 4-bit. A 7-8B base in 4-bit is roughly 4-6 GB (the embeddings and output head usually stay in 16-bit), the adapters and their optimizer state are small, and activations dominate the rest. That is why QLoRA on a 7-8B model fits on a 24 GB card. Details are on the [LoRA & QLoRA](../finetuning/lora-qlora.md) page.
+With LoRA, the base model is frozen, so it needs no gradients or optimizer state: only the small adapter matrices do. With QLoRA, the frozen base is also stored in 4-bit. A 7-8B base in 4-bit is roughly 5-6 GB (the embeddings and output head usually stay in 16-bit), the adapters and their optimizer state are small, and activations dominate the rest. That is why QLoRA on a 7-8B model fits on a 24 GB card. Details are on the [LoRA & QLoRA](../finetuning/lora-qlora.md) page.
 
 ## Compute and time
 
@@ -206,7 +209,7 @@ $$
 
 where $N$ is the parameter count and $D$ is the number of training tokens (2 FLOPs per parameter per token for the forward pass, 4 for the backward). The derivation is on [Scaling Laws & Compute](../llm/scaling-laws.md).
 
-To convert to time, divide by what your hardware *actually* achieves, not its peak. The ratio of achieved to peak throughput is **MFU** (model FLOPs utilization). A well-tuned single-node run often lands somewhere around 30-50% MFU; a first attempt is often lower.
+To convert to time, divide by what your hardware *actually* achieves, not its peak. The ratio of achieved to peak throughput is **MFU** (model FLOPs utilization). Expect roughly 35-50% when well tuned; below about 25% means something is wrong. A first attempt is often lower than a tuned run.
 
 $$
 \text{time} \approx \frac{6 N D}{\text{num GPUs} \times \text{peak FLOP/s} \times \text{MFU}}
@@ -216,6 +219,8 @@ $$
     $N = 5 \times 10^8$, $D = 10^{10}$ tokens (about 20 tokens per parameter, the Chinchilla rule of thumb). FLOPs $\approx 6 \times 5\times10^8 \times 10^{10} = 3 \times 10^{19}$.
 
     An H100's dense bf16 peak is on the order of $10^{15}$ FLOP/s. At 40% MFU that is $4 \times 10^{14}$ FLOP/s per GPU, so the run takes about $7.5 \times 10^4$ seconds, around **21 GPU-hours**. On an 8-GPU node, about 2.5-3 hours of wall-clock time. Training on more tokens (which small models usually benefit from) scales the time linearly.
+
+    This is the rough $6ND$ estimate. [Project 1](../projects/p1-500m-model.md#2-the-compute-budget) refines it with the exact 486.6M-parameter config and the attention FLOPs that $6ND$ leaves out, which gives about 26 GPU-hours (about 3.5 hours on 8 GPUs).
 
 ## Renting GPUs
 
@@ -243,12 +248,90 @@ Budget in three parts:
 
 1. **Debugging**, on the cheapest hardware that can run a small config. This is where most of the bugs are found and it should be cheap. Do it on your laptop or a single consumer GPU.
 2. **The main run**: GPU-hours from the formula above, times the hourly price, times a safety factor of about 1.5 for restarts, slower-than-expected throughput, and evaluation.
-3. **Storage and egress**: datasets and checkpoints. A 500M checkpoint with optimizer state is several GB; keep only the last few plus milestone checkpoints.
+3. **Storage and egress**: datasets and checkpoints. A 500M checkpoint with optimizer state is about 6 GB; keep only the last few plus milestone checkpoints.
 
-Using the example above: about 21 GPU-hours at roughly USD 2-4 per hour is roughly USD 40-85, times 1.5 gives a budget of roughly USD 60-130 for a Chinchilla-sized Project 1 run. Training on several times more tokens scales that proportionally.
+Using Project 1's refined figure: about 26 GPU-hours at roughly USD 2-4 per H100-hour is roughly USD 50-105, and the 1.5x safety factor gives a budget of roughly USD 80-155 for a Chinchilla-sized Project 1 run. Training on several times more tokens scales that proportionally.
 
 !!! danger "Stop the meter"
     Idle GPUs bill the same as busy ones. Before launching: set a billing alert, write checkpoints to persistent storage, and schedule a shutdown (for example `sudo shutdown -h +600` for 10 hours). Many people's most expensive mistake is a forgotten instance.
+
+## Running a long job on a rented GPU node
+
+A pretraining run that takes hours has to survive a dropped SSH connection, a reclaimed spot instance and a forgotten meter. The examples use [Project 1](../projects/p1-500m-model.md)'s `train.py`, which writes `ckpt_latest.pt` atomically every `save_every` steps and continues from it with `--resume <path>`.
+
+### Keep the job alive with tmux
+
+A process started in a plain SSH session dies when the connection drops. Start it inside `tmux` instead:
+
+```bash
+ssh ubuntu@<node-ip>
+tmux new -s train                 # start a named session
+# ... launch the run inside it ...
+# detach with Ctrl-b then d; the job keeps running
+tmux attach -t train              # reattach later, from any SSH session
+```
+
+Pipe the output through `tee` (as in the wrapper below) so the log survives the session too.
+
+### Put checkpoints where they outlive the instance
+
+A node's local NVMe disk is fast and is wiped when the instance stops. Two options:
+
+- **Persistent volume.** Attach a network volume and point `out_dir` at it. This is the simplest choice. It can be slow for the data shards, so keep those on local disk.
+- **Object-store sync.** Write checkpoints to local disk and copy the latest one to a bucket in a loop. Run it in a second tmux window:
+
+```bash
+while true; do
+  rclone copy out/p500m/ckpt_latest.pt remote:my-bucket/p500m/   # or: aws s3 cp, gsutil cp
+  sleep 900
+done
+```
+
+A 500M checkpoint with optimizer state is about 6 GB, so a sync every 15 minutes is cheap. Because `train.py` replaces the file atomically, the copy is never a half-written checkpoint.
+
+### Move tokenized shards on and off
+
+Tokenize on a cheap CPU machine, not on the GPU node (see Project 1). Then move the shards once: 10B tokens are 20 GB of `uint16` files.
+
+```bash
+# CPU machine -> bucket (once)
+rclone copy data/fwe remote:my-bucket/data/fwe --transfers 16
+# bucket -> GPU node's local NVMe (at the start of every rental)
+rclone copy remote:my-bucket/data/fwe /mnt/nvme/data/fwe --transfers 16
+```
+
+Copy the tokenizer directory as well, and check `meta.json`: it stores the tokenizer's absolute path, which must exist on the new machine. `rsync -avP` over SSH works equally well between two machines you control.
+
+### Auto-resume on spot instances
+
+Spot (interruptible) instances cost much less and can be reclaimed at short notice. A wrapper that restarts from the latest checkpoint turns an interruption into a few lost minutes:
+
+```bash title="run.sh"
+#!/usr/bin/env bash
+CKPT=out/p500m/ckpt_latest.pt
+CMD="torchrun --standalone --nproc_per_node=8 train.py --config configs/p500m_10b.json"
+until
+  if [ -f "$CKPT" ]; then $CMD --resume "$CKPT"; else $CMD; fi 2>&1 | tee -a train.log
+  [ "${PIPESTATUS[0]}" -eq 0 ]
+do
+  echo "run exited with an error; restarting in 30 s" | tee -a train.log
+  sleep 30
+done
+```
+
+The loop handles a crashed process. A reclaimed instance needs two more things: the checkpoint on a persistent volume or in a bucket, and `run.sh` in the instance's startup script, so that a replacement node restores the checkpoint and carries on. A resumed run repeats at most `save_every` steps.
+
+!!! warning "A restart loop also restarts real bugs"
+    If the run fails for a reason that a restart cannot fix (out of memory, a missing file), the loop retries forever while the meter runs. Read `train.log` after the first restart.
+
+### Cost-cap checklist
+
+- [ ] The full pipeline passed `--tiny` locally, and a 200-step run of the real config passed on the node
+- [ ] A billing alert or a hard spending limit is set in the provider's console
+- [ ] A scheduled shutdown is armed for the expected run time plus a margin: `sudo shutdown -h +300` for 5 hours
+- [ ] The run powers the node off when it finishes: `./run.sh && sudo shutdown -h now`
+- [ ] Checkpoints are on a persistent volume or synced to a bucket, and a restore was tested once
+- [ ] After the run: the instance is terminated (a stopped instance can still bill for its disk), and volumes and buckets that are no longer needed are deleted
 
 ## Experiment tracking
 
@@ -311,7 +394,7 @@ print(path)
 !!! warning "Common pitfalls"
     - **CUDA wheel does not match the driver.** If `torch.cuda.is_available()` is `False` on a GPU box, check `nvidia-smi` and reinstall from the matching index URL.
     - **Forgetting the optimizer in memory estimates.** A model that fits for inference may need around 8x more memory to train with AdamW.
-    - **Using peak FLOPs for time estimates.** Use 30-50% MFU at best for planning, lower for a first attempt.
+    - **Using peak FLOPs for time estimates.** Plan with an MFU of roughly 35-50% for a well-tuned run, and lower for a first attempt. Below about 25% means something is wrong.
     - **Checkpoints only on ephemeral disk.** When a spot instance is reclaimed, its local disk goes with it.
     - **Tokens in git.** Never commit your Hugging Face or W&B tokens. Use environment variables or the CLI login.
 
@@ -324,7 +407,7 @@ print(path)
     Keep micro-batch 4 and use 8 gradient accumulation steps. Optionally add activation checkpointing to fit a larger micro-batch, which usually improves throughput.
 
 ??? question "Estimate the KV cache for 32 layers, 8 KV heads, head dim 128, 8192 tokens, batch 1, in bf16."
-    $2 \times 32 \times 8 \times 128 \times 8192 \times 1 \times 2$ bytes, which is about 1.07 GB.
+    $2 \times 32 \times 8 \times 128 \times 8192 \times 1 \times 2$ bytes, which is about 1.07 GB (1 GiB).
 
 ??? question "A run's estimate is 100 GPU-hours at roughly USD 3 per hour. What budget do you set?"
     Roughly USD 300 for the run, times about 1.5 for restarts and slack, so roughly USD 450, plus storage. Then add a billing alert and an automatic shutdown.

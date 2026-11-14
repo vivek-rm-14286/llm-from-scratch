@@ -1,6 +1,6 @@
 # Project 1: Build a ~500M-Parameter SLM From Scratch
 
-In this project you build a small language model end to end. You train your own tokenizer, stream and tokenize billions of tokens of web text, write a modern Llama-style transformer, pretrain it on one or more GPUs, instruction-tune it into a chatbot, evaluate it, convert it to Hugging Face format, and publish it on the Hub. When you finish you will have a 487M-parameter model that you understand line by line, and that `transformers`, `lm-eval-harness`, vLLM and llama.cpp can load like any other Llama checkpoint.
+In this project you build a small language model end to end. You train your own tokenizer, stream and tokenize billions of tokens of web text, write a modern Llama-style transformer, pretrain it on one or more GPUs, evaluate it, turn it into a chatbot with supervised fine-tuning (SFT), convert it to Hugging Face format, and publish it on the Hub. When you finish you will have a 487M-parameter model that you understand line by line, and that `transformers`, `lm-evaluation-harness`, vLLM and llama.cpp can load like any other Llama checkpoint.
 
 !!! abstract "What you'll learn"
     - How to pick a concrete architecture (width, depth, heads, FFN size, vocab) for a parameter budget, and how to count the parameters exactly
@@ -11,6 +11,28 @@ In this project you build a small language model end to end. You train your own 
     - How to check that your weights are *really* compatible with HF `LlamaForCausalLM` (the RoPE layout trap), then evaluate and release
 
 All code is in [`code/p1_slm_500m`](https://github.com/vivek-rm-14286/llm-from-scratch/tree/main/code/p1_slm_500m). Every script has a `--tiny` mode or a self-test that runs on a laptop CPU or Apple-silicon GPU in under a minute, so you can read, run and break everything before you rent a GPU.
+
+!!! info "Two ways to do this project"
+    **Run and modify.** Clone the repository, run each script as described, read it against the walkthrough, then change something (a schedule, a width, the data mix) and predict the effect before you run it. This is the faster route and the one the [roadmap](../start/roadmap.md) assumes.
+
+    **Rebuild.** Write each file yourself from the walkthrough, in the order of the file table below, and use the supplied file only to compare. The checks that exist tell you when your version is right:
+
+    - `config.py`, `model.py`: `python count_params.py` must print 486,605,824 for both the analytic and the instantiated count.
+    - `model.py` (RoPE layout, GQA, KV cache): `python convert_to_hf.py --check` must print `PASS`.
+    - `train_tokenizer.py`, `prepare_data.py`, `train.py`: `python train.py --tiny` must take the validation loss from about 6.1 to about 1.3 in 60 steps.
+    - `sft.py`, `chat.py`: `python sft.py --tiny`, then `chat.py` on the result, must produce a reply that ends on its own.
+
+    There are no per-file unit tests beyond these, so for the other scripts compare your output with the supplied script's output on the tiny data.
+
+## How the project is split
+
+| Part | What you do | Hardware | When (roadmap) |
+|---|---|---|---|
+| [Part 0](#part-0-train-a-30m-model-on-your-laptop) | Train a 31.5M model on TinyStories with the same code | Laptop (Apple Silicon) or a free Colab GPU | Weeks 7-8 |
+| [Part A](#part-a-pretrain-and-evaluate-the-base-model) | Tokenizer, data, pretraining, validation loss and HellaSwag | CPU machine for data; 1-8 rented H100s for the run | Weeks 7-10 |
+| [Part B](#part-b-sft-chat-and-release) | SFT, chat, Hugging Face conversion, release | One rented GPU for a few hours | Week 13, after [Supervised Fine-Tuning](../post-training/sft.md) |
+
+Part A needs the Language Models and Pretraining pages only. Part B starts from the checkpoint Part A produces, so the two can be weeks apart.
 
 ```mermaid
 flowchart LR
@@ -35,16 +57,16 @@ uv pip install -r requirements.txt        # torch, numpy, tokenizers, transforme
 
 python count_params.py                    # prints the parameter breakdown and compute budget
 python train.py --tiny                    # builds a synthetic dataset, trains 60 steps on CPU/MPS
-python sft.py --tiny                      # instruction-tunes the tiny model
+python sft.py --tiny                      # runs SFT on the tiny model
 python chat.py --ckpt out/tiny_sft/ckpt_latest.pt --prompt "What is 3 plus 4?"
-python convert_to_hf.py --check           # our logits == HF LlamaForCausalLM logits
+python convert_to_hf.py --check           # this model's logits == HF LlamaForCausalLM logits
 ```
 
 The tiny run takes about ten seconds on an M-series laptop. The validation loss falls from about 6.1 ($\ln 450$, the tiny vocab size) to about 1.3, and the sample changes from random bytes to sentences like `"Ada said that an old map was big. Then Barbara said that..."`. The tiny model is too small to do the arithmetic in its synthetic data correctly. That is expected: the point of the tiny run is to exercise every code path. All scripts assume you run them from `code/p1_slm_500m/`.
 
 | File | What it does |
 |---|---|
-| `config.py` | `ModelConfig` dataclass plus presets `p500m`, `p125m`, `tiny` |
+| `config.py` | `ModelConfig` dataclass plus presets `p500m`, `p125m`, `p30m`, `tiny` |
 | `model.py` | The transformer: RMSNorm, RoPE, GQA attention, SwiGLU, KV cache, sampling |
 | `count_params.py` | Analytic and instantiated parameter count, plus the FLOPs/GPU-hours estimate |
 | `train_tokenizer.py` | Byte-level BPE with HF `tokenizers` |
@@ -52,10 +74,71 @@ The tiny run takes about ten seconds on an M-series laptop. The validation loss 
 | `train.py` | Pretraining: single GPU, DDP, bf16, compile, WSD/cosine, resume, MFU, wandb |
 | `sft.py` | ChatML SFT with loss masking on `HuggingFaceTB/smoltalk` |
 | `chat.py` | Interactive chat or completion with KV cache, temperature and top-p |
-| `eval_hellaswag.py` | HellaSwag scoring with the same preprocessing as lm-eval-harness |
+| `eval_hellaswag.py` | HellaSwag scoring with the same preprocessing as lm-evaluation-harness |
 | `convert_to_hf.py` | Export to `LlamaForCausalLM`; `--check` proves logit equality |
 | `push_to_hub.py` | Writes a model card and uploads to the Hub |
-| `configs/*.json` | Ready-made runs: `p500m_10b`, `p500m_50b`, `p125m_24gb` |
+| `configs/*.json` | Ready-made runs: `p500m_10b`, `p500m_50b`, `p125m_24gb`, `p30m_laptop` |
+
+## Part 0: train a 30M model on your laptop
+
+Before renting anything, run the whole pretraining pipeline at a size a laptop can finish: the `p30m` preset on [TinyStories](https://huggingface.co/datasets/roneneldan/TinyStories), a corpus of short children's stories written with a small vocabulary. Every step is the same code path as the 500M run (tokenizer, shards, `train.py`, resume, sampling), so the mistakes made here are free.
+
+```python title="config.py"
+"p30m": ModelConfig(vocab_size=8192, d_model=512, n_layers=8, n_heads=8, n_kv_heads=2,
+                    ffn_hidden=1792, max_seq_len=512),
+```
+
+```text
+$ python count_params.py --model p30m
+per layer: attn=655,360  ffn=2,752,512  norms=1,024  -> 3,408,896
+8 layers           = 27,271,168
+embedding (tied)    = 4,194,304
+analytic total      = 31,465,984
+instantiated total  = 31,465,984  (31.5M)
+```
+
+It is the same architecture at one sixteenth of the size: 8 layers of width 512, head dimension 64, 4 query heads per K/V head, a 3.5x SwiGLU, and an 8,192-token vocabulary, which is plenty for TinyStories.
+
+```bash
+# 1. An 8k tokenizer from 200k stories (a few minutes; streams, so no full download)
+python train_tokenizer.py --dataset roneneldan/TinyStories --name "" \
+    --num_docs 200000 --vocab_size 8192 --out tokenizer_ts
+
+# 2. 60M training tokens plus 1M validation tokens, as uint16 shards (about 120 MB)
+python prepare_data.py --tokenizer tokenizer_ts/tokenizer.json --out data/tinystories \
+    --source roneneldan/TinyStories::text:1.0 --total_tokens 60e6 \
+    --val_tokens 1000000 --shard_tokens 20000000
+
+# 3. Train on 50M tokens: 1,526 steps of 32,768 tokens
+python train.py --config configs/p30m_laptop.json
+```
+
+```json title="configs/p30m_laptop.json"
+{
+  "model": "p30m", "data_dir": "data/tinystories", "out_dir": "out/p30m",
+  "seq_len": 512, "batch_size": 16, "total_batch_tokens": 32768,
+  "lr": 6e-4, "schedule": "wsd", "warmup_steps": 200, "decay_frac": 0.2,
+  "max_steps": 1526, "eval_every": 250, "sample_every": 500, "save_every": 250,
+  "sample_prompt": "Once upon a time"
+}
+```
+
+**How long it takes.** The model costs about 0.21 GFLOP per training token, so 50M tokens are about $1.1 \times 10^{16}$ FLOPs.
+
+| Machine | Throughput | 50M tokens |
+|---|---|---|
+| M1 Pro, 16 GB (MPS, fp32) | 5,000-6,500 tokens/s over a short run | about 2.5 hours |
+| Free Colab T4 (`--dtype fp32`) | not measured | estimate: 1-2 hours |
+
+Only the M1 Pro row is a measurement, and it comes from the first dozen steps, not a full run. Newer and larger Apple Silicon chips are faster. For your own machine, read `tok/s` from the log after 20 steps and divide: time = 50,000,000 / tokens per second. On a T4, pass `--dtype fp32`: the default on CUDA is bf16 autocast, which the T4 does not support natively. The MFU column in the log assumes an H100, so ignore it here. To stop early, press ++ctrl+c++ and continue later with `--resume out/p30m/ckpt_latest.pt`. A shorter run (`--max_steps 600`, about 20M tokens) already shows the whole shape of the curve.
+
+**What to expect.** The step-0 loss is about $\ln 8192 \approx 9.0$. It falls fast in the first hundred steps as the model learns which tokens are common, then more slowly. The samples printed every 500 steps should move from noise, to story-like word salad, to short grammatical stories with recurring characters. They will still lose the plot after a few sentences. No reference loss is given, because the full run was not measured for this page. Judge the run by the shape of the curve, by train and validation loss staying close together, and by the samples.
+
+**Before moving on,** try three things: resume the run from a checkpoint and confirm that the loss continues where it stopped; switch to `--schedule cosine` for a few hundred steps and compare; and run `python chat.py --ckpt out/p30m/ckpt_latest.pt --base --prompt "Once upon a time"`.
+
+## Part A: pretrain and evaluate the base model
+
+Part A covers sections 1 to 6: choose the architecture, budget the run, train the tokenizer, prepare the data, pretrain, and evaluate the base model with validation loss and HellaSwag.
 
 ## 1. The architecture: choosing a ~500M config
 
@@ -210,15 +293,20 @@ where $N$ is the parameter count and $D$ is the number of training tokens. The 6
 
 Chinchilla ([Hoffmann et al. 2022](https://arxiv.org/abs/2203.15556)) found that compute-optimal training uses about 20 tokens per parameter, which is 10B tokens for us. Compute-optimal means "best loss for a fixed training budget". It does *not* mean "best model to deploy". Small models are cheap to serve, so modern SLMs are heavily *overtrained*: SmolLM2 and Llama 3.2 trained small models on trillions of tokens, hundreds to thousands of tokens per parameter. Loss keeps improving long past Chinchilla, just with diminishing returns. See [Scaling Laws & Compute](../llm/scaling-laws.md).
 
-**Assumptions:** H100 SXM dense bf16 peak ≈ 989 TFLOPS. A well-tuned 500M model at seq 2048 with `torch.compile` and SDPA/FlashAttention reaches roughly 35-45% MFU. We use 40%, which gives about 396 effective TFLOPS per GPU. Rental prices vary a lot by provider and commitment. Treat roughly USD 2-4 per H100-hour as a ballpark, not a quote.
+**Assumptions:** H100 SXM dense bf16 peak ≈ 989 TFLOP/s. MFU is roughly 35-50% when well tuned; below about 25% means something is wrong. The table uses 40%, which gives about 396 effective TFLOP/s per GPU. Rental prices vary a lot by provider and commitment. Treat roughly USD 2-4 per H100-hour as a ballpark, not a quote.
 
 | Run | Tokens | Tokens/param | Total FLOPs | H100-hours (40% MFU) | Wall clock on 8×H100 | Approx. cost |
 |---|---|---|---|---|---|---|
-| Chinchilla-optimal | 10B | ~21 | 3.7 × 10¹⁹ | ~26 | ~3.5 h | roughly USD 50-150 |
-| Overtrained (better SLM) | 50B | ~103 | 1.9 × 10²⁰ | ~131 | ~16 h | roughly USD 300-700 |
+| Chinchilla-optimal | 10B | ~21 | 3.7 × 10¹⁹ | ~26 | ~3.5 h | roughly USD 50-105 |
+| Overtrained (better SLM) | 50B | ~103 | 1.9 × 10²⁰ | ~131 | ~16 h | roughly USD 260-525 |
 | Cheap path: `p125m` on one RTX 4090 | 2.5B | ~20 | 2.6 × 10¹⁸ | ~12 (4090-hours) | ~12 h | electricity, or a few USD of rented 4090 time |
+| SFT for Part B (one H100, 2 epochs of SmolTalk) | ~1.25B (assumed) | n/a | ~4.7 × 10¹⁸ | ~3-5 (25-40% MFU) | ~3-5 h on one GPU | roughly USD 6-20 |
 
-`count_params.py` reproduces these numbers. For the cheap path, run `python count_params.py --model p125m --tokens 2.5e9 --peak_tflops 165 --mfu 0.35`. The 4090 figure assumes about 165 TFLOPS dense bf16 with fp32 accumulation. Budget 1.5-2× the raw number on top for failed starts, evals, SFT and the inevitable debugging. On a rented node, debug with `--tiny` *before* you start the meter.
+`count_params.py` reproduces the pretraining rows. For the cheap path, run `python count_params.py --model p125m --tokens 2.5e9 --peak_tflops 165 --mfu 0.35`. The 4090 figure assumes about 165 TFLOP/s dense bf16 with fp32 accumulation. None of these rows is a measured run.
+
+The SFT row is computed the same way, from tokens × FLOPs per token, with these assumptions: about 1.04M SmolTalk conversations averaging about 600 tokens after truncation to 2048, so about 0.62B tokens per epoch and 1.25B for the default 2 epochs; the pretraining cost of 3.72 GFLOP per token as an upper bound (shorter sequences have a smaller attention term); and 25-40% MFU, lower than pretraining because `sft.py` runs on one GPU without `torch.compile` and pads each batch to its longest conversation. The token count is the weakest assumption. `sft.py` prints the real number of training tokens when it starts, so rescale from that.
+
+Multiply the raw cost by about 1.5 for failed starts, evaluations and debugging: roughly USD 80-155 for the 10B run and roughly USD 390-790 for the 50B run. On a rented node, debug with `--tiny` *before* you start the meter.
 
 !!! info "Memory: will it fit?"
     Mixed-precision AdamW keeps about 16 bytes per parameter: fp32 weights (4), fp32 grads (4), and Adam's two moments (8). That is about 7.8 GB for 487M parameters, before activations. Activations for a micro-batch of 16 × 2048 tokens add tens of GB, and the logits tensor $B \cdot T \cdot V$ is large too (see [OOM](#oom)). An 80 GB H100 runs `batch_size=16` comfortably. A 24 GB card trains the 500M model with `batch_size=2-4` and more accumulation, or the 125M model with `batch_size=8`.
@@ -332,7 +420,9 @@ torchrun --standalone --nproc_per_node=8 train.py --config configs/p500m_10b.jso
 torchrun --standalone --nproc_per_node=8 train.py --config configs/p500m_10b.json --resume out/p500m/ckpt_latest.pt
 ```
 
-The JSON config sets defaults for every CLI flag, and any flag still overrides it, for example `--lr 6e-4`.
+The JSON config sets defaults for every CLI flag, and any flag still overrides it, for example `--lr 6e-4`. Without a config, `--lr` defaults to 8e-4, the 10B-run value; only `--tiny` raises it to 3e-3.
+
+For the mechanics of a multi-hour run on rented hardware (tmux, syncing `ckpt_latest.pt` off the node, a spot-instance wrapper around `--resume`, a cost-cap checklist), see [Running a long job on a rented GPU node](../start/setup.md#running-a-long-job-on-a-rented-gpu-node). If the loss misbehaves, work through [Debugging a Training Run](../pretraining/debugging.md).
 
 ```json title="configs/p500m_10b.json"
 {
@@ -430,7 +520,7 @@ $$
 step   1200 | loss 3.4120 | lr 8.00e-04 | gnorm 0.31 | 640 ms | 819,000 tok/s | MFU 38.5% | 0.629B tok
 ```
 
-(This line is illustrative, to show the format.) MFU is the number to watch when you optimize throughput. Small models on H100s commonly land somewhere in the 30-50% range. Below about 25% usually means a fixable problem (see [troubleshooting](#slow-throughput)).
+(This line is illustrative, to show the format.) MFU is the number to watch when you optimize throughput: roughly 35-50% when well tuned; below about 25% means something is wrong (see [troubleshooting](#slow-throughput) and the [throughput-tuning checklist](../pretraining/gpu-performance.md#a-practical-throughput-tuning-checklist)).
 
 **Checkpoints** contain model and optimizer state, step, config and the tokenizer path. They are written to a temporary file and then `os.replace`d, so a crash during a save never corrupts your last good checkpoint. `ckpt_latest.pt` is overwritten every `save_every` steps, and `ckpt_<step>.pt` is kept every `keep_every`. With WSD, keep the one from just before the decay starts. A 500M checkpoint with Adam state is about 6 GB.
 
@@ -452,7 +542,45 @@ Exact values depend on your tokenizer (a bigger vocab means each token carries m
 - **Decay phase:** a visible extra drop as the LR anneals.
 - For a model this size on FineWeb-Edu with a ~49k vocab, the final validation loss typically lands somewhere around the high 2s to low 3s. More tokens push it lower, with diminishing returns.
 
-## 6. Supervised fine-tuning (SFT)
+## 6. Evaluating the base model
+
+### Validation loss and perplexity
+
+This is your primary pretraining metric. It is cheap, smooth, and directly comparable between checkpoints of the same tokenizer and data.
+
+```bash
+python train.py --config configs/p500m_10b.json --resume out/p500m/ckpt_latest.pt --eval_only --eval_batches 200
+```
+
+### HellaSwag with your own script
+
+HellaSwag gives a context and four candidate endings, and the model must pick the plausible one. A base model can't "answer", so we *score* each ending by its log-probability under the model:
+
+```python title="eval_hellaswag.py"
+for e in endings:
+    cont = tok.encode(" " + e).ids
+    full = ctx_ids + cont
+    ...
+logp = F.log_softmax(model(x)[0].float(), dim=-1)
+# tokens at positions L-n..L-1 are predicted by positions L-n-1..L-2
+lp = logp[i, L - n - 1:L - 1].gather(-1, tgt[:, None]).sum()
+acc_norm_score = lp / len(ending_text)      # length-normalized by characters
+```
+
+The script applies lm-evaluation-harness's preprocessing (strip `[title]` artifacts, join `ctx_a` with a capitalized `ctx_b`) and report both `acc` (sum of log-probs) and `acc_norm` (divided by the ending's length in characters, the number papers usually quote). Random chance is 25%. Expect a small model to beat random clearly but stay far from large-model scores. HellaSwag tracks pretraining quality well, so plot it over checkpoints alongside val loss.
+
+```bash
+python eval_hellaswag.py --ckpt out/p500m/ckpt_latest.pt              # full 10,042-item val set
+python eval_hellaswag.py --ckpt out/p500m/ckpt_latest.pt --limit 1000  # quick, noisier estimate
+```
+
+Record both numbers for several checkpoints, including one from just before the WSD decay and the final one. Copy the checkpoints off the node. That completes Part A. The same two measurements work on the Hugging Face export in Part B, where `lm_eval` cross-checks the HellaSwag number.
+
+## Part B: SFT, chat and release
+
+Part B needs the base checkpoint from Part A and one GPU for a few hours (see the SFT row of the [budget table](#2-the-compute-budget)). Read [Supervised Fine-Tuning](../post-training/sft.md) first. In the roadmap this is week 13.
+
+## 7. Supervised fine-tuning (SFT)
 
 A pretrained base model *continues* text. It does not answer questions. SFT teaches it a conversation format and the habit of producing helpful replies. See [Supervised Fine-Tuning](../post-training/sft.md) for the theory. Here is the mechanical core.
 
@@ -499,7 +627,7 @@ python sft.py --init out/p500m/ckpt_latest.pt --out_dir out/sft     # SmolTalk "
 python sft.py --init ... --max_examples 200000                      # a quicker subset
 ```
 
-[SmolTalk](https://huggingface.co/datasets/HuggingFaceTB/smoltalk) is the open instruction mix Hugging Face built to SFT SmolLM2. It contains about a million conversations covering rewriting, summarization, math and coding, with a `messages` column in exactly the role/content format above. Defaults: LR 1e-4 with 3% warmup and cosine decay, batch 16 × 4 accumulation, 2 epochs, gradient clipping 1.0. SFT LRs are typically 3-10× below the pretraining peak. Too high and the model forgets what it learned in pretraining; too low and it barely picks up the format. On one H100, a full SmolTalk epoch for a 500M model takes on the order of hours, not days.
+[SmolTalk](https://huggingface.co/datasets/HuggingFaceTB/smoltalk) is the open instruction mix Hugging Face built to SFT SmolLM2. It contains about a million conversations covering rewriting, summarization, math and coding, with a `messages` column in exactly the role/content format above. Defaults: LR 1e-4 with 3% warmup and cosine decay, batch 16 × 4 accumulation, 2 epochs, gradient clipping 1.0. SFT LRs are typically 3-10× below the pretraining peak. Too high and the model forgets what it learned in pretraining; too low and it barely picks up the format. On one H100, the default 2 epochs are an estimated 3-5 hours (see the [budget table](#2-the-compute-budget) for the assumptions).
 
 ### Chatting with a KV cache
 
@@ -522,41 +650,9 @@ def sample_next(logits, temperature=0.8, top_p=0.95):
     return sorted_idx.gather(-1, torch.multinomial(sorted_probs, 1))
 ```
 
-`chat.py` decodes the *growing* list of generated ids, not one token at a time. Byte-level BPE can split a multi-byte UTF-8 character such as an emoji across tokens, and decoding the pieces separately prints garbage. See [Sampling, KV Cache & Quantization](../inference/inference.md) for more.
+`chat.py` decodes the *growing* list of generated ids, not one token at a time. Byte-level BPE can split a multi-byte UTF-8 character such as an emoji across tokens, and decoding the pieces separately prints garbage. See [Decoding: Sampling, KV Cache & Batching](../inference/inference.md) for more.
 
-## 7. Evaluation
-
-### Validation loss and perplexity
-
-This is your primary pretraining metric. It is cheap, smooth, and directly comparable between checkpoints of the same tokenizer and data.
-
-```bash
-python train.py --config configs/p500m_10b.json --resume out/p500m/ckpt_latest.pt --eval_only --eval_batches 200
-```
-
-### HellaSwag with your own script
-
-HellaSwag gives a context and four candidate endings, and the model must pick the plausible one. A base model can't "answer", so we *score* each ending by its log-probability under the model:
-
-```python title="eval_hellaswag.py"
-for e in endings:
-    cont = tok.encode(" " + e).ids
-    full = ctx_ids + cont
-    ...
-logp = F.log_softmax(model(x)[0].float(), dim=-1)
-# tokens at positions L-n..L-1 are predicted by positions L-n-1..L-2
-lp = logp[i, L - n - 1:L - 1].gather(-1, tgt[:, None]).sum()
-acc_norm_score = lp / len(ending_text)      # length-normalized by characters
-```
-
-We apply lm-eval-harness's preprocessing (strip `[title]` artifacts, join `ctx_a` with a capitalized `ctx_b`) and report both `acc` (sum of log-probs) and `acc_norm` (divided by the ending's length in characters, the number papers usually quote). Random chance is 25%. Expect a small model to beat random clearly but stay far from large-model scores. HellaSwag tracks pretraining quality well, so plot it over checkpoints alongside val loss.
-
-```bash
-python eval_hellaswag.py --ckpt out/p500m/ckpt_latest.pt              # full 10,042-item val set
-python eval_hellaswag.py --ckpt out/p500m/ckpt_latest.pt --limit 1000  # quick, noisier estimate
-```
-
-### Convert to Hugging Face format, and prove it is correct
+## 8. Convert to Hugging Face format, and prove it is correct
 
 Because our model uses HF's RoPE layout and the same block structure, conversion is a rename with no reshaping or permutation:
 
@@ -592,14 +688,14 @@ python convert_to_hf.py --ckpt out/sft/ckpt_latest.pt   --out hf/slm-500m-instru
 The folder gets `model.safetensors`, `config.json`, a `PreTrainedTokenizerFast` built from your `tokenizer.json`, and the ChatML `chat_template`. `--chat` sets EOS to `<|im_end|>`, so `generate()` stops at the end of a reply. After that, the standard tooling works:
 
 ```bash
-pip install lm-eval
+uv pip install "lm_eval[hf]"
 lm_eval --model hf --model_args pretrained=hf/slm-500m-base,dtype=bfloat16 \
         --tasks hellaswag,arc_easy,arc_challenge,piqa,winogrande --batch_size 32
 ```
 
 Your own HellaSwag `acc_norm` should agree closely with lm-eval's. Small differences can come from tokenization at the context/ending boundary. This doubles as an end-to-end check of the conversion. See [Evaluation](../pretraining/evaluation.md) for which benchmarks are informative at small scale (many are near random for sub-1B models).
 
-## 8. Release
+## 9. Release
 
 ```bash
 hf auth login                 # older huggingface_hub: huggingface-cli login
@@ -613,6 +709,14 @@ A good model card states what data you trained on, how many tokens, the exact ar
 
 ## Milestones
 
+**Part 0: laptop warm-up**
+
+- [ ] `count_params.py --model p30m` prints 31,465,984
+- [ ] The `p30m` run on TinyStories finishes, and its samples read like simple stories
+- [ ] You resumed it once with `--resume` and the loss continued smoothly
+
+**Part A: pretrain and evaluate (roadmap weeks 7-10)**
+
 - [ ] `count_params.py` prints 486,605,824 and you can derive it by hand
 - [ ] `train.py --tiny`, `sft.py --tiny` and `convert_to_hf.py --check` all pass locally
 - [ ] Tokenizer trained; you inspected how it splits English, numbers and code
@@ -620,6 +724,10 @@ A good model card states what data you trained on, how many tokens, the exact ar
 - [ ] On the GPU node: a 200-step run with the real config shows falling loss and MFU above ~30%
 - [ ] Full pretraining run finished; loss curve looks like the [qualitative picture](#what-the-loss-curve-should-look-like)
 - [ ] Val loss and HellaSwag recorded for several checkpoints (including pre- and post-decay)
+- [ ] Checkpoints copied off the node; node shut down
+
+**Part B: SFT, chat and release (roadmap week 13)**
+
 - [ ] SFT run; the model answers in ChatML and stops at `<|im_end|>`
 - [ ] Converted to HF; `lm_eval` runs; your HellaSwag agrees with it
 - [ ] Model card written and both base and instruct models pushed to the Hub

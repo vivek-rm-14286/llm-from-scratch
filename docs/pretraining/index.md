@@ -6,7 +6,7 @@ Pretraining is where a language model gets almost all of its knowledge and abili
     - What pretraining is, and why "predict the next token" is enough to learn grammar, facts and some reasoning
     - The end-to-end pipeline from raw web crawl to a trained checkpoint
     - What a base model can and cannot do
-    - How this section is organized, and what to read next
+    - How this section is organized, and what each page answers
 
 ## The one objective
 
@@ -46,10 +46,12 @@ The stages map onto the pages in this section:
 |---|---|---|
 | Sources, filtering, dedup, mixing, sharding | [Data Pipelines](data.md) | What tokens does the model see, and in what proportions? |
 | Loss, optimizer, schedule, precision, stability | [The Training Loop](training.md) | How do you turn tokens into a good model without diverging? |
+| Sanity checks, leaks, NaNs, loader bugs | [Debugging a Training Run](debugging.md) | The loss looks wrong (or too good). Where is the bug? |
 | Multi-GPU and multi-node | [Distributed Training](distributed.md) | How do you fit the model and go fast enough? |
+| Kernels, memory bandwidth, profiling, MFU | [GPU Performance Engineering](gpu-performance.md) | Is each GPU doing as much work as it can? |
 | Val loss, benchmarks, contamination | [Evaluation](evaluation.md) | Is it actually getting better? |
 
-A useful mental split: **data quality decides how good the model can be; the training loop decides whether you get there; distributed training decides how long it takes.** Most teams that train strong small models (SmolLM2/3, OLMo 2, Phi, Qwen) credit data work more than architecture tweaks.
+A useful mental split: **data quality decides how good the model can be; the training loop decides whether you get there; distributed training and GPU performance decide how long it takes and what it costs.** Most teams that train strong small models (SmolLM2/3, OLMo 2, Phi, Qwen) credit data work more than architecture tweaks.
 
 ## How big is "pretraining"?
 
@@ -99,7 +101,7 @@ flowchart LR
 The line between pretraining and post-training has blurred. Two terms you will see:
 
 - **Annealing / mid-training**: near the end of pretraining, while the learning rate decays, the mixture is shifted toward high-quality data (curated math, code, textbook-style text, some instruction-like data). This gives an outsized boost on benchmarks. See [Data Pipelines](data.md#mixtures-curriculum-and-annealing).
-- **Continued pretraining**: taking an existing base model and pretraining further on a new domain (medical text, a new language, long documents for context extension). Same loop, smaller learning rate, usually with some original-distribution data mixed in to avoid forgetting.
+- **Continued pretraining**: taking an existing base model and pretraining further on a new domain (medical text, a new language, long documents for context extension). Same loop, smaller learning rate, usually with some original-distribution data mixed in to avoid forgetting. [Continued Pretraining & Model Merging](../finetuning/merging-continued-pretraining.md) covers it in detail.
 
 !!! warning "Common pitfalls"
     - **Treating pretraining as an architecture problem.** At small scale, data quality and the number of tokens matter far more than clever layers.

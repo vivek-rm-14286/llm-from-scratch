@@ -7,6 +7,7 @@ You now have tokens and attention. A GPT-style language model is those two piece
     - Pre-norm vs post-norm, residual streams, and the GELU MLP
     - Weight tying between the token embedding and the LM head
     - A complete, runnable GPT implementation with `generate()`
+    - Why generation without a KV cache repeats work, and what one cached attention step looks like
     - How to count parameters by hand: the $12 L d^2$ rule with a worked GPT-2 example
     - The shape of every tensor in a forward pass
     - A character-level training demo on tiny Shakespeare
@@ -195,7 +196,7 @@ class GPT(nn.Module):
         logits = self.lm_head(x)                                # (B, T, vocab)
         if targets is None:
             return logits
-        loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1))
+        loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.reshape(-1))
         return logits, loss
 
     @torch.no_grad()
@@ -216,7 +217,7 @@ class GPT(nn.Module):
 
 **`GPTConfig`.** Defaults are GPT-2 small. `block_size` is the maximum context (because positions are a learned table, the model literally cannot see position 1024 or beyond). `bias=False` is a common modern choice; we keep `True` by default to match GPT-2's parameter count exactly.
 
-**`CausalSelfAttention`.** Exactly the multi-head attention from [the previous page](attention.md), with the fused QKV projection and `F.scaled_dot_product_attention(is_causal=True)`.
+**`CausalSelfAttention`.** Exactly the multi-head attention from [Embeddings & Attention](attention.md), with the fused QKV projection and `F.scaled_dot_product_attention(is_causal=True)`.
 
 **`RESIDUAL_SCALE` init.** Each block adds two outputs to the residual stream. With $L$ blocks, that is $2L$ random contributions summed together, so the stream's variance grows with depth. GPT-2 scales the init of the *output* projections of attention and the MLP by $1/\sqrt{2L}$ to keep the residual stream at roughly unit scale at initialization.
 
@@ -229,10 +230,44 @@ class GPT(nn.Module):
 
 Production code often skips projecting all positions at inference and only computes the last one; we keep full logits because post-training needs per-token log-probabilities.
 
-**`generate()`.** The autoregressive loop: crop to the context window, run the model, take the last position's logits, apply temperature and optional top-k filtering, sample, append. There is no KV cache here, so each step recomputes attention over the whole context. That is $O(T^2)$ per token and fine for demos; [Inference](../inference/inference.md) adds caching.
+**`generate()`.** The autoregressive loop: crop to the context window, run the model, take the last position's logits, apply temperature and optional top-k filtering, sample, append. There is no KV cache here, so each step recomputes attention over the whole context. That is $O(T^2)$ per token and fine for demos; the [next section](#a-first-look-at-the-kv-cache) shows the idea of caching and [Inference](../inference/inference.md) builds the full version.
 
 !!! tip "Sanity check before training"
     At initialization the model should predict roughly uniformly, so the loss should be about $\ln |V|$. For GPT-2's vocab that is $\ln 50257 \approx 10.8$; for 65 characters it is $\ln 65 \approx 4.17$. If your first loss is far above that, your init or your logits are wrong.
+
+### A first look at the KV cache
+
+`generate()` above re-runs the whole model on the whole context for every new token. Most of that work is repeated: with a causal mask, the hidden states of positions $0..t-1$ cannot change when token $t$ arrives, so neither can their attention keys and values. A **KV cache** stores each layer's keys and values for the past positions. A decoding step then feeds only the newest token, computes one query, key and value per layer, appends the key and value to the cache, and attends over the cache.
+
+```mermaid
+flowchart LR
+    N["newest token (1 position)"] --> QKV["q, k, v for that position"]
+    C["cache: k, v of positions 0..t-1"] --> CAT["append new k, v"]
+    QKV --> CAT
+    CAT --> ATT["attention: 1 query over t+1 keys"]
+    QKV --> ATT
+    ATT --> O["output for the newest position"]
+    CAT --> C2["cache for the next step"]
+```
+
+Here is one cached attention step for the `CausalSelfAttention` above:
+
+```python title="kv_cache.py"
+@torch.no_grad()
+def attn_step(attn, x_new, cache):
+    """x_new: (B, 1, C), the newest position only. cache: dict holding past k and v."""
+    B, _, C = x_new.shape
+    q, k, v = attn.qkv(x_new).split(C, dim=2)
+    q, k, v = (t.view(B, 1, attn.n_head, C // attn.n_head).transpose(1, 2) for t in (q, k, v))
+    if cache:                                        # append this position's k, v to the past
+        k = torch.cat([cache["k"], k], dim=2)
+        v = torch.cat([cache["v"], v], dim=2)
+    cache["k"], cache["v"] = k, v                    # (B, H, t+1, Dh)
+    y = F.scaled_dot_product_attention(q, k, v)      # no mask: the cache holds only the past
+    return attn.proj(y.transpose(1, 2).reshape(B, 1, C))
+```
+
+The result is the same as the full forward pass, not an approximation: on the 6-layer Shakespeare config, logits computed one token at a time through this function match `model(idx)` to about `2e-6`. The per-token cost drops from re-processing $t$ positions to processing one, and the price is memory: every layer keeps a `(B, H, T, Dh)` tensor of keys and one of values. That memory is what grouped-query attention shrinks in [Modern Architectures](modern-architectures.md#gqa-and-mqa-shrinking-the-kv-cache). The full version, with batching, context overflow and sampling, is in [Inference](../inference/inference.md); wiring this step into a complete `generate_cached()` is one of the [Build it](#build-it) tasks below.
 
 ## Shapes table
 
@@ -403,6 +438,58 @@ On a single modern GPU this runs in a few minutes; on a laptop (Apple MPS or CPU
     - **Exceeding `block_size`.** With learned positions there is no embedding for position `block_size`; the assert catches this, and `generate()` crops the context.
     - **Weight-decaying everything.** Production code usually excludes biases, norm gains, and often embeddings from weight decay. It barely matters for this demo but does matter at scale.
     - **Evaluating on a single batch.** Loss is noisy; average over many batches as `estimate_loss` does.
+
+## Build it
+
+Starting point: `gpt.py` from this page. Everything runs on a laptop CPU.
+
+1. **Overfit one batch.** Build `GPTConfig(vocab_size=65, block_size=64, n_layer=2, n_head=4, d_model=128, bias=False)` (410,368 parameters). Draw one fixed batch `x = torch.randint(0, 65, (8, 65))`, use `x[:, :-1]` as input and `x[:, 1:].contiguous()` as targets, and run 300 AdamW steps at `lr=1e-3` on that same batch. Done when the loss starts near $\ln 65 \approx 4.17$ (about 4.2 in practice), is below 0.1 by step 100 (about 0.04) and below 0.02 by step 300. A model that cannot do this has a bug, not a tuning problem.
+2. **Top-p sampling.** Add a `top_p=None` argument to `generate()`: keep the smallest set of most-likely tokens whose probability reaches `top_p` and sample from that set. Done when, on a model in `eval()` mode:
+    - `top_p=1e-9` returns exactly the greedy (argmax) continuation, and so does the existing `top_k=1`;
+    - `top_p=1.0` returns the same tokens as plain sampling under the same `torch.manual_seed`;
+    - for probabilities `[0.5, 0.3, 0.15, 0.05]` your filter keeps 3 tokens at `top_p=0.9`, 2 at `0.8` and 1 at `0.5`.
+3. **Cached generation.** Using `attn_step` from [A first look at the KV cache](#a-first-look-at-the-kv-cache), write `step(model, tok, t, caches)` (one new token through the whole model) and a greedy `generate_cached(model, idx, max_new_tokens)`. Done when, for the 10.7M Shakespeare config with random weights:
+    - logits collected by feeding 32 tokens one at a time match `model(idx)` at every position (`torch.allclose(..., atol=1e-5)`);
+    - 200 greedy tokens are identical with and without the cache (`torch.equal`);
+    - the cached version is clearly faster: about 0.9 s against 2.8 s on a laptop CPU.
+
+??? success "Solution sketch"
+    Top-p, inserted after the top-k block in `generate()`:
+
+    ```python
+    if top_p is not None:
+        sorted_logits, sorted_idx = torch.sort(logits, descending=True)
+        probs = F.softmax(sorted_logits, dim=-1)
+        before = probs.cumsum(-1) - probs                 # mass strictly before each token
+        sorted_logits[before >= top_p] = -float("inf")    # the top token is always kept
+        logits = torch.full_like(logits, -float("inf")).scatter(1, sorted_idx, sorted_logits)
+    ```
+
+    Cached generation (valid while the total length stays within `block_size`):
+
+    ```python
+    @torch.no_grad()
+    def step(model, tok, t, caches):
+        """tok: (B, 1), the token at position t. Returns next-token logits (B, V)."""
+        x = model.tok_emb(tok) + model.pos_emb(torch.tensor([t], device=tok.device))
+        for block, cache in zip(model.blocks, caches):
+            x = x + attn_step(block.attn, block.ln1(x), cache)
+            x = x + block.mlp(block.ln2(x))
+        return model.lm_head(model.ln_f(x))[:, -1]
+
+    @torch.no_grad()
+    def generate_cached(model, idx, max_new_tokens):
+        caches = [{} for _ in model.blocks]
+        for t in range(idx.size(1)):                      # prefill with the prompt
+            logits = step(model, idx[:, t:t + 1], t, caches)
+        for _ in range(max_new_tokens):
+            nxt = logits.argmax(-1, keepdim=True)
+            idx = torch.cat([idx, nxt], dim=1)
+            logits = step(model, nxt, idx.size(1) - 1, caches)
+        return idx
+    ```
+
+    The position passed to `pos_emb` must be the token's real position `t`, not 0; forgetting that is the most common cache bug.
 
 ## Check your understanding
 

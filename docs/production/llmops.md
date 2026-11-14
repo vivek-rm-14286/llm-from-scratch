@@ -89,6 +89,52 @@ if __name__ == "__main__":
 
 Here task accuracy improved, but the safety refusal rate dropped by 6 points, well outside noise, so the gate fails. This is the pattern you want: a single headline metric going up must not hide a regression elsewhere. Gate on **every** metric you care about, including safety and over-refusal, and include cost and latency budgets.
 
+## Lab: an eval gate for Project 3
+
+[Project 3](../projects/p3-rag.md) has what a gate needs: a versioned golden set, an evaluation that is deterministic and needs no LLM, and one metric with a hard limit of zero. Its retrieval evaluation reports recall@5 and MRR for four retrieval modes and counts **ACL leaks**, retrieved chunks above the asking user's access level. Setup is described in [the project's setup section](../projects/p3-rag.md#0-setup-and-the-one-minute-smoke-test).
+
+**Step 1. Record a baseline.**
+
+```bash
+cd code/p3_support_rag
+python eval.py --reingest --write-baseline ci/baseline.json
+```
+
+The baseline file holds the metrics of the release you accept, per mode. It is committed with the code, so a pull request that changes behavior on purpose updates the baseline in the same diff and a reviewer sees both.
+
+**Step 2. Gate a change.**
+
+```bash
+python eval.py --reingest --baseline ci/baseline.json --max-drop 0.02
+echo $?
+```
+
+Unchanged code prints `GATE PASSED` and exits 0. The gate fails on any ACL leak, with no tolerance, and on a drop of more than 0.02 in recall@5 or MRR in any mode. Because retrieval here has no randomness, the tolerance is not a noise allowance as in `gate.py` above; it is the size of regression you are willing to accept without discussion. With 78 scored questions, 0.02 is between one and two questions.
+
+**Step 3. Break something and watch the gate.** Make each of these changes in turn, re-run step 2, then revert. The outcomes listed are from one run:
+
+| Change | Outcome |
+|---|---|
+| `retrieve.py`: in `bm25_tokenize`, remove the line that adds the parts of an identifier (`out.extend(...)`) | `GATE FAILED: sparse: mrr 0.744 -> 0.691`. Recall@5 barely moves; the ranking got worse, and only MRR sees it. |
+| `retrieve.py`: delete the `query_filter=...` argument of the dense search | The run aborts with `RuntimeError: ACL violation: ticket:T-1007#0 returned for access=public` and a non-zero exit. The retriever's own assertion fires before the leak counter is reached. |
+| `ingest.py`: in `load_documents`, replace `access = meta.get("access", "internal")` with `access = "public"` | `GATE FAILED` on MRR for `dense` and `hybrid_rerank`, with **0 ACL leaks reported**. Every internal and restricted doc is now labeled public, so the leak check, which compares against the label, sees nothing wrong. The gate caught it only through a side effect on ranking. |
+| `ingest.py`: change the default `max_chars` of `chunk_document` from 1000 to 300 | `GATE PASSED`. The index grows from 316 to 325 chunks and `hybrid_rerank` MRR falls from 0.838 to 0.818, a drop of exactly the tolerance. |
+
+The last two rows are the instructive ones. A gate catches what its metrics can see and what its tolerance lets through. A wrong access label at the source is invisible to a check that trusts labels, so it needs its own test (for example: every file under an `internal` path must be indexed with `access_level >= 1`). And a tolerance wide enough to ignore noise also lets small real regressions accumulate, which is why the baseline is updated only deliberately.
+
+**Step 4. Put it in CI.** [`ci/eval-gate.yml`](https://github.com/vivek-rm-14286/llm-from-scratch/tree/main/code/p3_support_rag/ci/eval-gate.yml) is a sample GitHub Actions workflow with three checks: the golden set is consistent with the corpus, the retrieval gate from step 2, and the red-team run from the [safety lab](safety.md#lab-red-team-the-project-3-copilot) with a ceiling on attack success rate. It installs CPU-only PyTorch, caches the two small models, and uploads both reports as artifacts. Copy it to `.github/workflows/` in a fork, open a pull request with one of the changes from step 3, and confirm the check goes red.
+
+```yaml title="ci/eval-gate.yml (excerpt)"
+      - name: Retrieval eval gate (ACL leaks, recall and MRR vs baseline)
+        run: python eval.py --reingest --baseline ci/baseline.json --max-drop 0.02
+      - name: Red-team gate (fake model)
+        run: python redteam.py --fake-llm --max-asr 0.10
+```
+
+**Step 5. Decide what is not in the gate.** Generation quality (`python eval.py --generate`) needs an LLM and a judge, costs money and varies between runs, so it does not belong on every pull request. Write down where it runs instead (nightly, or before a release, against the pinned production model) and which of its metrics would block a release.
+
+What this lab leaves out on purpose: the gate compares against a stored file, not against a fresh run of the production release, so a change in a dependency or a model revision shows up as a failure in an unrelated pull request. That is usually what you want to know, and pinning the versions in `requirements.txt` is the fix.
+
 ## Deployment patterns
 
 Offline evals never fully match production traffic. Roll out gradually and compare on real requests.
@@ -110,7 +156,7 @@ flowchart LR
 
 You cannot debug what you did not record. For every request, emit a **trace**: a tree of spans covering the gateway, guards, retrieval, each model call and each tool call.
 
-**Per model call, log at least:** release ID, model and prompt version, input tokens (and cached tokens), output tokens, TTFT, TPOT and total latency (definitions on the [inference page](../inference/inference.md#latency-and-throughput-metrics)), finish reason (stop, length, tool call, content filter), guard verdicts, errors and retries, and a user or tenant ID (hashed if needed).
+**Per model call, log at least:** release ID, model and prompt version, input tokens (and cached tokens), output tokens, TTFT, TPOT and total latency (definitions on the [inference page](../inference/serving.md#latency-and-throughput-metrics)), finish reason (stop, length, tool call, content filter), guard verdicts, errors and retries, and a user or tenant ID (hashed if needed).
 
 **Dashboards and alerts:**
 
@@ -243,19 +289,19 @@ Prompts, completions, retrieved documents and traces are user data. Treat them a
 
 ## Data and model licensing
 
-Licences decide what you are allowed to do with a model or dataset, and they vary a lot. Broadly:
+Licenses decide what you are allowed to do with a model or dataset, and they vary a lot. Broadly:
 
-**Open-weight model licences:**
+**Open-weight model licenses:**
 
-- **Permissive open-source licences** (Apache-2.0, MIT). Commercial use, modification and redistribution are allowed with attribution and licence notices. Apache-2.0 also includes an explicit patent grant. Many SmolLM, OLMo, Qwen, Mistral and Phi releases use one of these, but check each model and each size: licences can differ within a family.
-- **Custom community licences** (for example the Llama licences and the Gemma terms). These allow broad use but add conditions: an acceptable-use or prohibited-use policy, attribution or naming requirements for derivatives, and in some cases extra terms for very large companies or restrictions on using outputs to improve other models. They are not OSI-approved open-source licences.
-- **Research or non-commercial licences.** Some checkpoints may only be used for research.
+- **Permissive open-source licenses** (Apache-2.0, MIT). Commercial use, modification and redistribution are allowed with attribution and license notices. Apache-2.0 also includes an explicit patent grant. Many SmolLM, OLMo, Qwen, Mistral and Phi releases use one of these, but check each model and each size: licenses can differ within a family.
+- **Custom community licenses** (for example the Llama licenses and the Gemma terms). These allow broad use but add conditions: an acceptable-use or prohibited-use policy, attribution or naming requirements for derivatives, and in some cases extra terms for very large companies or restrictions on using outputs to improve other models. They are not OSI-approved open-source licenses.
+- **Research or non-commercial licenses.** Some checkpoints may only be used for research.
 
-**Derivatives inherit obligations.** A LoRA adapter, a merged model, a quantized build or a distilled student trained on a model's outputs can all carry the original licence's conditions. A model fine-tuned from a custom-licensed base generally stays under that licence.
+**Derivatives inherit obligations.** A LoRA adapter, a merged model, a quantized build or a distilled student trained on a model's outputs can all carry the original license's conditions. A model fine-tuned from a custom-licensed base generally stays under that license.
 
-**Dataset licences.** Common ones include CC-BY (attribution), CC-BY-SA (share-alike), CC-BY-NC (non-commercial), ODC-By, and assorted custom terms. Web crawls contain content under many different terms. Synthetic data generated by an API model is subject to that provider's terms of service, some of which restrict using outputs to train competing models.
+**Dataset licenses.** Common ones include CC-BY (attribution), CC-BY-SA (share-alike), CC-BY-NC (non-commercial), ODC-By, and assorted custom terms. Web crawls contain content under many different terms. Synthetic data generated by an API model is subject to that provider's terms of service, some of which restrict using outputs to train competing models.
 
-The practical rule: **read the actual licence and terms for every model and dataset you use, record them in your release manifest and model card, and ask a lawyer when the use is commercial and the terms are unclear.** This section describes the landscape in general terms, and licences change between versions.
+The practical rule: **read the actual license and terms for every model and dataset you use, record them in your release manifest and model card, and ask a lawyer when the use is commercial and the terms are unclear.** This section describes the landscape in general terms, and licenses change between versions.
 
 ## Incident response for model regressions
 
@@ -320,7 +366,7 @@ Copy this into your repo and check it off before launch.
 
 - [ ] PII redacted before logging; retention TTLs enforced
 - [ ] Consent and a deletion path exist for any data used in training
-- [ ] Licences for every model and dataset recorded in the model card
+- [ ] Licenses for every model and dataset recorded in the model card
 - [ ] An incident runbook and on-call owner exist
 
 ## Check your understanding
@@ -349,4 +395,4 @@ Copy this into your repo and check it off before launch.
 - Mitchell et al., [Model Cards for Model Reporting](https://arxiv.org/abs/1810.03993) (2019).
 - [OpenTelemetry documentation](https://opentelemetry.io/docs/).
 - [Google SRE Book: Postmortem Culture](https://sre.google/sre-book/postmortem-culture/).
-- [Choose a License](https://choosealicense.com/) and the [Open Source Initiative licence list](https://opensource.org/licenses).
+- [Choose a License](https://choosealicense.com/) and the [Open Source Initiative license list](https://opensource.org/licenses).

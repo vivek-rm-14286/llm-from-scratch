@@ -1,5 +1,6 @@
-# Tested with torch 2.15 and transformers 5.23 (Python 3.14); torch>=2.4 and transformers>=4.56 should work.
-torch>=2.4
+# Tested with torch 2.15 and transformers 5.23 (Python 3.12 and 3.14); torch>=2.5 and transformers>=4.56 should work.
+# Install with: uv pip install -r requirements.txt
+torch>=2.5
 numpy
 tokenizers>=0.20
 transformers>=4.56

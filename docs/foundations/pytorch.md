@@ -355,6 +355,53 @@ print(loss)   # near or a bit above ln(100) = 4.6 for random logits
     - **Using `float16` without a `GradScaler`.** Small gradients underflow to zero. Prefer `bfloat16` when your hardware supports it.
     - **In-place ops on tensors autograd needs** (`x += 1`, `relu_()`) can raise "modified by an inplace operation" errors. Use out-of-place versions.
 
+## Build it
+
+Starting point: `train_loop.py` from this page.
+
+1. **A linear layer by hand.** Write `MyLinear(d_in, d_out)` as an `nn.Module` with its own `nn.Parameter`s (`weight` of shape `(d_out, d_in)`, `bias` of shape `(d_out,)`) and a `forward` that uses `torch.einsum` and accepts any number of leading dimensions. Build `MyMLP(2, 64, 3)` from two of them with a GELU in between and train it with the loop above. Done when:
+    - `sum(p.numel() for p in model.parameters())` prints `387`;
+    - after `ml.load_state_dict(lin.state_dict())` for `lin = nn.Linear(2, 64)`, `torch.allclose(ml(x), lin(x), atol=1e-6)` is `True` for `x = torch.randn(5, 7, 2)`;
+    - validation accuracy after 5 epochs is at least 0.98 (a typical run prints 0.992 to 0.996).
+2. **Accumulation equals a big batch.** Take one batch of 64 examples. Compute the gradient of the mean loss in one pass, then again as 4 micro-batches of 16 with the loss divided by 4 and no `zero_grad` in between. Flatten all parameter gradients into one vector each time. Done when `torch.allclose(g_acc, g_full, atol=1e-6)` is `True`. Then remove the division by 4: the gradient norm becomes exactly 4.0 times larger, which is the silent learning-rate bug described above.
+
+??? success "Solution sketch"
+    ```python
+    class MyLinear(nn.Module):
+        def __init__(self, d_in, d_out):
+            super().__init__()
+            self.weight = nn.Parameter(torch.randn(d_out, d_in) / d_in ** 0.5)
+            self.bias = nn.Parameter(torch.zeros(d_out))
+
+        def forward(self, x):                       # x: (..., d_in)
+            return torch.einsum("...i,oi->...o", x, self.weight) + self.bias
+
+    class MyMLP(nn.Module):
+        def __init__(self, d_in, d_hidden, d_out):
+            super().__init__()
+            self.fc1, self.fc2 = MyLinear(d_in, d_hidden), MyLinear(d_hidden, d_out)
+
+        def forward(self, x):
+            return self.fc2(F.gelu(self.fc1(x)))
+
+    def flat_grad(model):
+        return torch.cat([p.grad.flatten() for p in model.parameters()])
+
+    xb, yb = X[:64], y[:64]
+    model.zero_grad()
+    F.cross_entropy(model(xb), yb).backward()
+    g_full = flat_grad(model)
+
+    model.zero_grad()
+    for i in range(4):
+        s = slice(16 * i, 16 * (i + 1))
+        (F.cross_entropy(model(xb[s]), yb[s]) / 4).backward()
+    g_acc = flat_grad(model)
+    print(torch.allclose(g_acc, g_full, atol=1e-6))   # True
+    ```
+
+    The parameter names (`weight`, `bias`) and shapes match `nn.Linear`, which is why its `state_dict` loads directly.
+
 ## Check your understanding
 
 ??? question "What is the result shape of `torch.randn(8, 1, 5) + torch.randn(3, 1)`?"

@@ -33,7 +33,7 @@ on training. The derivation is short:
 - **Backward pass: $4N$ FLOPs per token.** You compute gradients with respect to both the activations (to keep backpropagating) and the weights, each costing about as much as the forward pass.
 - Total: $6N$ per token, times $D$ tokens.
 
-The rule ignores attention's score computation, which adds roughly $12 \cdot L \cdot d \cdot T$ FLOPs per token for sequence length $T$ (the accounting used in the PaLM paper). For large models this is small, but for small models with long context it is not: a 500M model with $L = 24$, $d = 1280$ at $T = 2048$ adds about 0.75 GFLOPs per token on top of $6N = 3$ GFLOPs, roughly 25% more. Use $6N$ for back-of-envelope work and add the attention term when budgeting a real SLM run.
+The rule ignores attention's score computation, which adds roughly $12 \cdot L \cdot d \cdot T$ FLOPs per token for sequence length $T$ (the accounting used in the PaLM paper). For large models this is small, but for small models with long context it is not: a 500M model with $L = 32$, $d = 1024$ at $T = 2048$ adds about 0.8 GFLOPs per token on top of $6N \approx 3$ GFLOPs, roughly 25% more. Use $6N$ for back-of-envelope work and add the attention term when budgeting a real SLM run.
 
 !!! note "Which N?"
     Use parameters that do matmul work. Embedding lookups cost nothing, but a tied embedding matrix *is* used as the LM head matmul, so it counts once. Kaplan et al. used non-embedding parameters; Chinchilla used total parameters. This difference is one of the reasons their conclusions differ.
@@ -129,7 +129,7 @@ $$
 \frac{3 \times 10^{19}}{3.96 \times 10^{14}} \approx 7.6 \times 10^{4} \text{ s} \approx 21 \text{ hours}
 $$
 
-On 8 H100s with near-linear scaling: about **2.6 hours**, still about **21 GPU-hours** total. At a rental price in the range of USD 2-3 per H100-hour, that is roughly USD 40-65 of compute. (Add the ~25% attention overhead discussed above for a long-context small model, plus time for evaluation and restarts.)
+On 8 H100s with near-linear scaling: about **2.6 hours**, still about **21 GPU-hours** total. At a rental price in the range of USD 2-4 per H100-hour, that is roughly USD 40-85 of compute. (Add the ~25% attention overhead discussed above for a long-context small model, plus time for evaluation and restarts.)
 
 ### Worked example 2: 500M parameters, 50B tokens on 8x H100
 
@@ -143,11 +143,11 @@ $$
 \frac{1.5 \times 10^{20}}{8 \times 3.96 \times 10^{14}} \approx 4.7 \times 10^{4} \text{ s} \approx 13 \text{ hours}
 $$
 
-About **105 GPU-hours**, roughly USD 210-320 at the same rental range. This is the scale of [Project 1](../projects/p1-500m-model.md): a weekend on one 8-GPU node.
+About **105 GPU-hours**, roughly USD 210-420 at the same rental range. This is the scale of [Project 1](../projects/p1-500m-model.md). Project 1's exact config (486.6M parameters plus attention FLOPs) comes to about 26 and 131 GPU-hours for these two runs, so the larger one takes about 16 hours on one 8-GPU node.
 
 ### Worked example 3: 1B parameters, 1T tokens on 64x H100
 
-$C = 6 \times 10^{9} \times 10^{12} = 6 \times 10^{21}$ FLOPs. At 40% MFU on 64 GPUs: about 66 hours of wall-clock time and about 4,200 GPU-hours, on the order of USD 10,000. Real SLMs trained on 10T+ tokens cost ten times that, which is why most people fine-tune open weights instead of pretraining.
+$C = 6 \times 10^{9} \times 10^{12} = 6 \times 10^{21}$ FLOPs. At 40% MFU on 64 GPUs: about 66 hours of wall-clock time and about 4,200 GPU-hours, on the order of USD 10,000-15,000. Real SLMs trained on 10T+ tokens cost ten times that, which is why most people fine-tune open weights instead of pretraining.
 
 ### A reusable estimator
 
@@ -157,7 +157,7 @@ def chinchilla_loss(N, D, E=1.69, A=406.4, B=410.7, alpha=0.34, beta=0.28):
     return E + A / N**alpha + B / D**beta
 
 
-def train_time(N, D, n_gpus, peak_flops=989e12, mfu=0.40, usd_per_gpu_hour=2.5):
+def train_time(N, D, n_gpus, peak_flops=989e12, mfu=0.40, usd_per_gpu_hour=3.0):
     flops = 6 * N * D
     seconds = flops / (n_gpus * peak_flops * mfu)
     gpu_hours = seconds * n_gpus / 3600
@@ -172,10 +172,10 @@ for N, D, g in [(500e6, 10e9, 1), (500e6, 10e9, 8), (500e6, 50e9, 8), (1e9, 1e12
 ```
 
 ```text
-N=500M D=10B gpus=1: 3.00e+19 FLOPs, 21.1 h wall, 21 GPU-h, ~USD 53, tokens/param=20, loss~2.79
-N=500M D=10B gpus=8: 3.00e+19 FLOPs, 2.6 h wall, 21 GPU-h, ~USD 53, tokens/param=20, loss~2.79
-N=500M D=50B gpus=8: 1.50e+20 FLOPs, 13.2 h wall, 105 GPU-h, ~USD 263, tokens/param=100, loss~2.55
-N=1000M D=1000B gpus=64: 6.00e+21 FLOPs, 65.8 h wall, 4213 GPU-h, ~USD 10,533, tokens/param=1000, loss~2.22
+N=500M D=10B gpus=1: 3.00e+19 FLOPs, 21.1 h wall, 21 GPU-h, ~USD 63, tokens/param=20, loss~2.79
+N=500M D=10B gpus=8: 3.00e+19 FLOPs, 2.6 h wall, 21 GPU-h, ~USD 63, tokens/param=20, loss~2.79
+N=500M D=50B gpus=8: 1.50e+20 FLOPs, 13.2 h wall, 105 GPU-h, ~USD 316, tokens/param=100, loss~2.55
+N=1000M D=1000B gpus=64: 6.00e+21 FLOPs, 65.8 h wall, 4213 GPU-h, ~USD 12,640, tokens/param=1000, loss~2.22
 ```
 
 Read the loss column as "5x more data on the same model buys a meaningful drop; 2x the model and 20x the data buys more", not as a prediction of the number you will see on your own tokenizer and data.
@@ -190,7 +190,7 @@ achieved_flops = 6 * n_params * tokens_per_step / step_time_seconds
 mfu = achieved_flops / (world_size * 989e12)   # use your GPU's dense bf16 peak
 ```
 
-Then re-run the time estimate with your measured MFU. If MFU is below ~30%, check that you are using bf16 autocast, SDPA, `torch.compile`, a large enough micro-batch, and that the data loader is not the bottleneck. These are covered in [The Training Loop](../pretraining/training.md) and [Distributed Training](../pretraining/distributed.md).
+Then re-run the time estimate with your measured MFU. Expect roughly 35-50% when well tuned; below ~25% means something is wrong. In that case check that you are using bf16 autocast, SDPA, `torch.compile`, a large enough micro-batch, and that the data loader is not the bottleneck. These are covered in [The Training Loop](../pretraining/training.md) and [Distributed Training](../pretraining/distributed.md), with the full tuning workflow in [GPU Performance Engineering](../pretraining/gpu-performance.md).
 
 !!! info "Memory is a separate budget"
     FLOPs tell you time; memory tells you whether it fits. Mixed-precision training with AdamW needs about 16 bytes per parameter for weights, gradients, fp32 master weights, and two optimizer moments (500M parameters: about 8 GB), plus activations, which grow with batch size, sequence length, and depth.
@@ -209,11 +209,55 @@ Wei et al. (2022) reported "emergent abilities": tasks where small models score 
 
 !!! warning "Common pitfalls"
     - **Using sparsity-inflated peak FLOPs** from datasheets. Use dense bf16 numbers.
-    - **Assuming 100% MFU** or perfect multi-GPU scaling. Plan for 30-45% and some communication overhead.
+    - **Assuming 100% MFU** or perfect multi-GPU scaling. Plan for roughly 35-50% MFU when well tuned, and some communication overhead.
     - **Treating Chinchilla's 20 tokens/param as an upper bound.** It is the compute-optimal point for training only; for deployed models, more tokens is almost always better.
     - **Extrapolating loss constants across datasets or tokenizers.** Fit your own small-scale curves if you need real predictions.
     - **Forgetting non-training compute:** evaluation, failed runs, restarts, and hyperparameter sweeps often add 20-50% to the total.
     - **Ignoring the attention FLOPs term** for small, long-context models, where it can add 20%+ to the bill.
+
+## Build it
+
+Starting point: `estimate.py` from this page.
+
+1. **Add the attention term.** Give `train_time` optional `n_layer`, `d_model` and `seq_len` arguments and use `(6 * N + 12 * n_layer * d_model * seq_len) * D` as the FLOP count. Run it for Project 1's shape (`N = 486.6e6`, 32 layers, `d_model` 1024, `seq_len` 2048) on 8 H100s at 40% MFU and USD 3 per GPU-hour. Expected:
+
+    ```text
+    D=10B: 3.72e+19 FLOPs, 3.3 h wall, 26 GPU-h, USD 78
+    D=50B: 1.86e+20 FLOPs, 16.3 h wall, 131 GPU-h, USD 392
+    ```
+
+    Without the attention term the same calls give 20.5 and 102.5 GPU-hours: the term adds 27.6% for this shape.
+2. **Find the compute-optimal model yourself.** For a fixed budget $C$, every model size $N$ implies a token count $D = C / (6N)$. Scan $N$ on a log grid from $10^7$ to $10^{11}$ and pick the $N$ that minimizes `chinchilla_loss(N, C / (6 * N))`. Expected:
+
+    | Budget $C$ | Best $N$ | Tokens $D$ | Tokens per parameter | Predicted loss |
+    |---|---|---|---|---|
+    | $3 \times 10^{19}$ | about 376M | 13.3B | 35 | 2.785 |
+    | $1.5 \times 10^{20}$ | about 776M | 32.2B | 42 | 2.545 |
+    | $6 \times 10^{21}$ | about 4.1B | 245B | 60 | 2.175 |
+
+    Compare the first row with worked example 1: 500M parameters on 10B tokens uses the same compute and scores 2.789, only 0.004 worse than the optimum. Two lessons: the optimum is flat, so model size can be chosen for other reasons (such as serving cost), and this particular fit gives a ratio that drifts above the "20 tokens per parameter" rule of thumb as compute grows, because its exponents imply $N_{\text{opt}} \propto C^{0.45}$ rather than exactly $C^{0.5}$.
+
+??? success "Solution sketch"
+    ```python
+    def train_time(N, D, n_gpus, peak_flops=989e12, mfu=0.40, usd_per_gpu_hour=3.0,
+                   n_layer=0, d_model=0, seq_len=0):
+        flops = (6 * N + 12 * n_layer * d_model * seq_len) * D
+        seconds = flops / (n_gpus * peak_flops * mfu)
+        gpu_hours = seconds * n_gpus / 3600
+        return flops, seconds / 3600, gpu_hours, gpu_hours * usd_per_gpu_hour
+
+    for D in (10e9, 50e9):
+        flops, hours, gpuh, usd = train_time(486.6e6, D, 8, n_layer=32, d_model=1024, seq_len=2048)
+        print(f"D={D/1e9:.0f}B: {flops:.2e} FLOPs, {hours:.1f} h wall, {gpuh:.0f} GPU-h, USD {usd:,.0f}")
+
+    for C in (3e19, 1.5e20, 6e21):
+        grid = (10 ** (e / 200) for e in range(7 * 200, 11 * 200))
+        loss, N = min((chinchilla_loss(N, C / (6 * N)), N) for N in grid)
+        D = C / (6 * N)
+        print(f"C={C:.1e}: N={N/1e6:.0f}M D={D/1e9:.1f}B tokens/param={D/N:.1f} loss={loss:.3f}")
+    ```
+
+    Setting the derivative of $A N^{-\alpha} + B (C/6N)^{-\beta}$ to zero gives $N_{\text{opt}} \propto C^{\beta/(\alpha+\beta)} = C^{0.45}$ for the fitted $\alpha = 0.34$, $\beta = 0.28$, which the grid search reproduces.
 
 ## Check your understanding
 

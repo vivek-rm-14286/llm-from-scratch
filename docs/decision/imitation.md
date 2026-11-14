@@ -144,7 +144,7 @@ import torch.nn.functional as F
 class DecisionTransformer(nn.Module):
     """GPT-style model over interleaved (return-to-go, state, action) tokens."""
 
-    def __init__(self, obs_dim, n_actions, d_model=128, n_layers=3, n_heads=4, max_len=60, max_t=1000):
+    def __init__(self, obs_dim, n_actions, d_model=128, n_layers=3, n_heads=4, max_t=1000):
         super().__init__()
         self.embed_rtg = nn.Linear(1, d_model)
         self.embed_obs = nn.Linear(obs_dim, d_model)
@@ -152,10 +152,9 @@ class DecisionTransformer(nn.Module):
         self.embed_time = nn.Embedding(max_t, d_model)       # absolute timestep, shared by the 3 tokens
         layer = nn.TransformerEncoderLayer(d_model, n_heads, 4 * d_model, dropout=0.1,
                                            batch_first=True, norm_first=True)
-        self.blocks = nn.TransformerEncoder(layer, n_layers)
+        self.blocks = nn.TransformerEncoder(layer, n_layers, enable_nested_tensor=False)
         self.ln = nn.LayerNorm(d_model)
         self.head = nn.Linear(d_model, n_actions)
-        self.max_len = max_len
 
     def forward(self, rtg, obs, act, timesteps):
         # rtg: (B, K, 1)  obs: (B, K, obs_dim)  act: (B, K) long  timesteps: (B, K) long

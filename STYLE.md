@@ -16,9 +16,10 @@ Link to repo code as https://github.com/vivek-rm-14286/llm-from-scratch/tree/mai
 2. `!!! abstract "What you'll learn"` bullet list.
 3. Sections with `##`/`###`. Use intuition first, then math, then code.
 4. `!!! warning "Common pitfalls"` near the end.
-5. `## Check your understanding` with 3-5 collapsible Q&As: `??? question "Q..."` with the answer indented inside.
-6. `## Further reading` - real papers (arXiv links you are confident about) and docs.
-7. No manual "Next:" link — the app renders previous/next cards.
+5. `## Build it` (core concept pages): 1-3 hands-on tasks. Each states the starting point, what to build, and the expected result (a number, a printed output, or a check that must pass) so the learner knows when they are done. Put a short solution sketch in a collapsible `??? success "Solution sketch"`. Only include tasks you have actually solved.
+6. `## Check your understanding` with 3-5 collapsible Q&As: `??? question "Q..."` with the answer indented inside.
+7. `## Further reading` - real papers (arXiv links you are confident about) and docs.
+8. No manual "Next:" link — the app renders previous/next cards.
 Concept pages: ~1500-3500 words. Project pages: long, with complete, runnable code.
 
 ## Markdown features available
@@ -34,3 +35,6 @@ Concept pages: ~1500-3500 words. Project pages: long, with complete, runnable co
 - Internal links are RELATIVE .md paths, e.g. from docs/llm/attention.md -> `[Transformer](transformer.md)`, `[RAG](../rag/fundamentals.md)`. They are validated at build time. Only link to pages listed in docs/curriculum.yml.
 - Only write the files assigned to you.
 - No provenance wording ("according to X docs", "as captured from..."). Write plain explanatory content; papers go in "Further reading".
+- Write impersonally: no "we measured" / "when we tested"; state the result ("On a laptop CPU this takes about 80 ms").
+- US spelling. Units: "TFLOP/s", "GB" (say GiB only when the distinction matters), currency as "USD 50".
+- The app adds a reading time, an "On this page" rail, previous/next cards and a "Used in" box (from `used_in:` in docs/curriculum.yml), so pages do not need to repeat those.

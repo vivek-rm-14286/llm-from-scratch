@@ -165,7 +165,7 @@ trainable, total = count_params(model)
 print(f"trainable {trainable:,} / {total:,} = {100 * trainable / total:.2f}%")
 
 opt = torch.optim.AdamW([p for p in model.parameters() if p.requires_grad], lr=2e-4)
-# ... your usual training loop (e.g. the SFT loop from the SFT page) ...
+# ... your usual training loop (e.g. train_sft() from the SFT page) ...
 
 model.eval()
 x = torch.randint(0, 1000, (1, 16))
@@ -176,7 +176,7 @@ with torch.no_grad():
 print("max diff after merge:", (before - after).abs().max().item())  # ~1e-5 or smaller
 ```
 
-Pass only the trainable parameters to the optimizer. AdamW state is then allocated only for the adapters, which is where the memory savings come from.
+Pass only the trainable parameters to the optimizer. AdamW state is then allocated only for the adapters, which is where the memory savings come from. The training loop itself is unchanged: the [from-scratch SFT loop](../post-training/sft.md#a-from-scratch-sft-loop) works as is.
 
 ## Which modules to target
 
@@ -297,7 +297,7 @@ The Hugging Face PEFT library implements all of the above. Install: `pip install
 
     1. Freezes the base, casts every non-quantized fp16/bf16 parameter (norms, but also the embeddings and `lm_head`) to fp32 for stability, enables gradient checkpointing, and makes input embeddings produce grads so checkpointing works with a frozen base. The fp32 upcast of a 128k-vocabulary embedding and `lm_head` adds roughly 2 GB for an 8B model compared with the table below; if memory is tight, skip this helper and call `model.gradient_checkpointing_enable()` plus `model.enable_input_require_grads()` yourself.
 
-Training is then any normal loop or trainer. With TRL (**TRL ≥ 0.20**) you can skip `get_peft_model` and pass the config directly; see [SFT](../post-training/sft.md#the-same-job-with-trl) for the full trainer setup:
+Training is then any normal loop or trainer. With **TRL 1.x** (API stable since 0.20) you can skip `get_peft_model` and pass the config directly; see [SFT](../post-training/sft.md#the-same-job-with-trl) for the full trainer setup. [Project 2](../projects/p2-finetune.md) runs this recipe end to end on a real task:
 
 ```python title="trl_qlora_sft.py"
 from datasets import load_dataset
@@ -316,7 +316,7 @@ trainer = SFTTrainer(
         learning_rate=2e-4,
         num_train_epochs=2,
         lr_scheduler_type="cosine",
-        warmup_ratio=0.03,
+        warmup_steps=0.03,           # a float below 1 is a fraction of total steps
         bf16=True,
         gradient_checkpointing=True,
         optim="paged_adamw_8bit",
@@ -347,7 +347,7 @@ merged.save_pretrained("llama31-8b-merged")
 AutoTokenizer.from_pretrained(base_id).save_pretrained("llama31-8b-merged")
 ```
 
-The merged model was trained against a dequantized-NF4 base but is now merged into the original bf16 weights. The mismatch is usually negligible, but evaluate the merged model rather than assuming. You can then quantize the merged model for inference (GGUF, AWQ, GPTQ; see [Inference](../inference/inference.md)).
+The merged model was trained against a dequantized-NF4 base but is now merged into the original bf16 weights. The mismatch is usually negligible, but evaluate the merged model rather than assuming. You can then quantize the merged model for inference (GGUF, AWQ, GPTQ; see [Quantization & Serving](../inference/serving.md#quantization)).
 
 ## DoRA, briefly
 
@@ -444,6 +444,49 @@ The OpenAI-compatible server equivalent is `vllm serve <base> --enable-lora --lo
     - **Mismatched base at load time.** An adapter only works on the exact base model it was trained on (same checkpoint, same revision).
     - **Gradient checkpointing without input grads.** With a frozen base, checkpointing can produce no gradients unless inputs require grad; `prepare_model_for_kbit_training` or `model.enable_input_require_grads()` fixes it.
 
+## Build it
+
+Starting point: `gpt.py` from [The Transformer, Line by Line](../llm/transformer.md) with the Shakespeare config `GPTConfig(vocab_size=65, block_size=256, n_layer=6, n_head=6, d_model=384, bias=False)` and random weights, plus `lora.py` and `inject.py` from this page. No pretrained model or GPU is needed: the checks are about the mechanics.
+
+1. **LoRA on the tiny GPT.** Inject adapters with `inject_lora(model, targets=("qkv", "proj"), r=8, alpha=16, dropout=0.0)`; `"proj"` matches both the attention output and the MLP down-projection. Then train only the adapters for 50 AdamW steps (`lr=1e-3`) on one fixed random batch (`x`, `y` of shape `(4, 64)`), and merge. Done when:
+    - `count_params` reports `trainable 202,752 / 10,947,840 = 1.85%` (33,792 per block: check it by hand with $r(d_{\text{in}} + d_{\text{out}})$);
+    - right after injection the logits are bit-for-bit equal to the base model's (`torch.equal`), because $B = 0$;
+    - the loss on the fixed batch drops from about 4.26 to below 1.0 (0.48 in a reference run), so the adapters have clearly moved the outputs;
+    - in `eval()` mode, logits before and after `merge_lora(model)` agree to `atol=1e-5` (largest difference about `6e-6`), and calling `unmerge()` on every `LoRALinear` restores them.
+2. **Ship only the adapter.** Save `lora_state_dict(model)` and the full `model.state_dict()` with `torch.save`. Done when the adapter file holds 36 tensors with 202,752 values in total and is about 0.8 MB, against about 44 MB for the full checkpoint.
+
+??? success "Solution sketch"
+    ```python
+    torch.manual_seed(0)
+    model = GPT(cfg).eval()
+    x, y = torch.randint(0, 65, (4, 64)), torch.randint(0, 65, (4, 64))
+    base_logits = model(x).detach()
+
+    inject_lora(model, targets=("qkv", "proj"), r=8, alpha=16, dropout=0.0)
+    trainable, total = count_params(model)
+    print(f"trainable {trainable:,} / {total:,} = {100 * trainable / total:.2f}%")
+    print(torch.equal(model(x), base_logits))                  # True: B starts at zero
+
+    opt = torch.optim.AdamW([p for p in model.parameters() if p.requires_grad], lr=1e-3)
+    model.train()
+    for _ in range(50):
+        _, loss = model(x, y)
+        opt.zero_grad(); loss.backward(); opt.step()
+
+    model.eval()
+    with torch.no_grad():
+        before = model(x)
+        merge_lora(model)
+        after = model(x)
+    print((before - after).abs().max().item())                 # about 6e-6
+
+    sd = lora_state_dict(model)
+    print(len(sd), sum(v.numel() for v in sd.values()))        # 36 202752
+    torch.save(sd, "adapter.pt"); torch.save(model.state_dict(), "full.pt")
+    ```
+
+    Per block: `qkv` adds 8 × (384 + 1152) = 12,288, the attention `proj` 8 × (384 + 384) = 6,144, and the MLP `proj` 8 × (1536 + 384) = 15,360. The merged and unmerged outputs differ only by floating-point rounding, since $Wx + \frac{\alpha}{r}B(Ax)$ and $(W + \frac{\alpha}{r}BA)x$ are the same sum computed in a different order.
+
 ## Check your understanding
 
 ??? question "Why is B initialized to zero and A randomly, rather than both randomly?"
@@ -472,5 +515,3 @@ The OpenAI-compatible server equivalent is `vllm serve <base> --enable-lora --lo
 - Hugging Face PEFT docs - [huggingface.co/docs/peft](https://huggingface.co/docs/peft)
 - bitsandbytes docs - [huggingface.co/docs/bitsandbytes](https://huggingface.co/docs/bitsandbytes)
 - vLLM LoRA adapters docs - [docs.vllm.ai](https://docs.vllm.ai)
-
-Put it into practice in [Project 2: Fine-tune an Open-Weight Model](../projects/p2-finetune.md).

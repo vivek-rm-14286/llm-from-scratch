@@ -40,7 +40,8 @@ class ActorCritic(nn.Module):
 
 
 def compute_gae(rewards, values, dones, last_value, gamma, lam):
-    """rewards/values/dones: (T, N). dones[t]=1 if the episode TERMINATED at step t.
+    """rewards/values/dones: (T, N). dones[t]=1 if the episode ended at step t
+    (terminated or truncated; a truncation is already bootstrapped into rewards[t]).
 
     A_t = sum_k (gamma*lam)^k delta_{t+k},  delta_t = r_t + gamma*V(s_{t+1})*(1-done_t) - V(s_t)
     """

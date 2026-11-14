@@ -6,7 +6,7 @@ const executedScripts = new Set<string>()
 const tok = (n: string) => getComputedStyle(document.documentElement).getPropertyValue(n).trim()
 
 /** Renders a compiled Markdown fragment and progressively enhances it (math, diagrams, code tools). */
-export const Prose = memo(function Prose({ html, meta, route }: { html: string; meta: PageMeta; route: string }) {
+export const Prose = memo(function Prose({ html, meta, route, numbered = true }: { html: string; meta: PageMeta; route: string; numbered?: boolean }) {
   const ref = useRef<HTMLDivElement>(null)
   const { dark } = useTheme()
 
@@ -43,7 +43,7 @@ export const Prose = memo(function Prose({ html, meta, route }: { html: string; 
     return () => document.removeEventListener('click', onDoc)
   }, [])
 
-  return <div ref={ref} className="prose-lf" />
+  return <div ref={ref} className={numbered ? 'prose-lf' : 'prose-lf no-num'} />
 })
 
 async function renderMath(el: HTMLElement) {

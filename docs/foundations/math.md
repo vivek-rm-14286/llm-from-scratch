@@ -422,6 +422,45 @@ The loss starts at $\ln 3 \approx 1.0986$ (uniform predictions, since $W = 0$) a
     - **Mixing log bases.** Losses in PyTorch use natural log (nats). Perplexity is $e^{\text{loss}}$, not $2^{\text{loss}}$.
     - **Reading KL as a distance.** It is asymmetric; which direction you use changes behavior (mode-seeking vs mass-covering).
 
+## Build it
+
+Starting point: `softmax` and `softmax_regression.py` from this page. Only numpy is needed.
+
+1. **Entropy versus temperature.** Write `entropy(p)` (in nats) and print the entropy and the perplexity $e^{H}$ of `softmax(z / T)` for `z = [2.0, 1.0, 0.1]` at $T = 0.5, 1, 2, 100$. Expected entropies: `0.4537, 0.8467, 1.0262, 1.0986`. Expected perplexities: `1.574, 2.332, 2.791, 3.000`. The last entropy is $\ln 3$: a very high temperature gives a uniform distribution over the three classes.
+2. **Check the matrix gradient.** Wrap the loss and the gradient of `softmax_regression.py` into `loss_fn(W, b)` and `grads(W, b)`. At a random `W` and `b`, compare `dW` against central finite differences (`eps = 1e-5`) for all six entries. Done when the largest absolute difference is below `1e-8` (it lands near `1e-10`) and each row of `dW` sums to zero up to rounding.
+3. **Finish the run.** Train from zeros for 200 steps and print the final loss, perplexity and accuracy. Expected: loss `0.0298`, perplexity `1.03`, accuracy `0.995`. The seed is fixed, so the numbers should match to the printed digits.
+
+??? success "Solution sketch"
+    ```python
+    def entropy(p):
+        return -np.sum(p * np.log(p))
+
+    z = np.array([2.0, 1.0, 0.1])
+    for T in [0.5, 1.0, 2.0, 100.0]:
+        H = entropy(softmax(z / T))
+        print(T, round(H, 4), round(np.exp(H), 3))
+
+    def loss_fn(W, b):
+        P = softmax(X @ W + b)
+        return -np.log(P[np.arange(N), y]).mean()
+
+    def grads(W, b):
+        G = softmax(X @ W + b); G[np.arange(N), y] -= 1; G /= N
+        return X.T @ G, G.sum(axis=0)
+
+    W, b = rng.normal(size=(D, C)), rng.normal(size=C)
+    dW, _ = grads(W, b)
+    num, eps = np.zeros_like(W), 1e-5
+    for i in range(D):
+        for j in range(C):
+            Wp, Wm = W.copy(), W.copy()
+            Wp[i, j] += eps; Wm[i, j] -= eps
+            num[i, j] = (loss_fn(Wp, b) - loss_fn(Wm, b)) / (2 * eps)
+    print(np.abs(num - dW).max(), dW.sum(axis=1))
+    ```
+
+    The rows of `dW` sum to zero because each row of `G` (probabilities minus one-hot) sums to zero: raising every class's logit by the same amount does not change the loss. For task 3, run the page's loop and evaluate `loss_fn(W, b)` after the last update.
+
 ## Check your understanding
 
 ??? question "What is the shape of $\partial L/\partial W$ for $W$ of shape (512, 2048)?"

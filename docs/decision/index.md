@@ -102,7 +102,7 @@ $$
 \text{Gain} = I(S) - \frac{|S_L|}{|S|} I(S_L) - \frac{|S_R|}{|S|} I(S_R)
 $$
 
-With entropy as $I$ this is literally the information gained about the label by asking the question. CART uses Gini. ID3 and C4.5 use entropy-based gain. In practice the two give very similar trees.
+With entropy as $I$ this is literally the information gained about the label by asking the question. CART uses Gini. ID3 uses entropy-based gain, and C4.5 uses its normalized form, the gain ratio. In practice the two give very similar trees.
 
 Here is a complete tree learner from scratch, about 50 lines of numpy, checked against scikit-learn:
 
@@ -202,7 +202,7 @@ Many organizations encode decisions as explicit, human-written rules: eligibilit
     | 640..719 | < 0.30 | ≤ 20,000 | approve |
     | < 640 | - | - | decline |
 
-- **Hit policies** say what happens when several rows match: **U**nique (exactly one row may match), **F**irst (top-most match wins), **P**riority (highest-priority output wins), **A**ny (all matches must agree), and **C**ollect (return all matches, optionally aggregated with sum/min/max/count).
+- **Hit policies** say what happens when several rows match: **U**nique (exactly one row may match), **F**irst (top-most match wins), **P**riority (highest-priority output wins), **A**ny (all matches must agree), and **C**ollect (return all matches, optionally aggregated with sum/min/max/count). DMN also defines **R**ule order and **O**utput order, which return all matches as an ordered list.
 - **FEEL (Friendly Enough Expression Language)** is DMN's small expression language for conditions and calculations, such as ranges like `[640..719]`, comparisons, date arithmetic and list functions, designed to be readable by business analysts.
 - **Decision Requirements Diagrams (DRDs)** connect decisions, their input data and the knowledge sources behind them into a graph, so a "loan decision" can depend on "risk category", which in turn depends on a scoring model.
 

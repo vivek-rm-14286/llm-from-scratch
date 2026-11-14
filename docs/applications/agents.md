@@ -9,8 +9,9 @@ A language model on its own can only produce text. Give it a way to request acti
     - A minimal agent in about 100 lines of Python against any OpenAI-compatible endpoint
     - The Model Context Protocol (MCP) and a working MCP server
     - Multi-agent patterns, memory and planning
-    - Training models for tool use: SFT on traces and RL with tool environments
-    - Evaluating agents, and keeping them safe
+    - Training models for tool use: a tool-call training row rendered through a chat template, with its loss mask, and RL with tool environments
+    - Evaluating agents with a task-success loop, and keeping them safe
+    - A lab: Project 2's triage model and Project 3's `/ask` service as tools, and one of them as an MCP server
 
 ## The agent loop
 
@@ -381,7 +382,7 @@ The costs are real: many more tokens, more failure points, and information lost 
 
 "Memory" means different things at different time scales:
 
-- **Working memory** is the context window: the current conversation and tool results. Manage it with the [compaction techniques](prompting.md#compaction-and-summarization) from the prompting page.
+- **Working memory** is the context window: the current conversation and tool results. Manage it with the [compaction techniques](prompting.md#compaction-and-summarization) in Prompt & Context Engineering.
 - **Long-term memory** is an external store. The agent gets tools like `save_note(text)` and `search_notes(query)`, or the application extracts facts after each session and retrieves relevant ones at the start of the next. This is RAG over the agent's own history.
 - **Scratchpad files**: for long tasks, letting the agent write a plan or progress file and reread it is simple and robust.
 
@@ -397,6 +398,86 @@ Prompting a general model is the first rung. When you need a small model to use 
 
 **SFT on tool-call traces.** Collect trajectories (system prompt with tool schemas, user request, assistant tool calls, tool results, final answer) rendered in the model's chat template, and run [SFT](../post-training/sft.md) on them. The key detail is the [loss mask](../post-training/sft.md#loss-masking-train-on-answers-not-questions): train on the assistant's tool calls and answers, **not** on the tool results, since the model should learn to call tools, not to hallucinate their outputs. Traces usually come from a stronger model running your tools on many synthetic tasks, filtered to the successful ones ([distillation and synthetic data](../post-training/distillation-synthetic-data.md)). Include cases where the right move is *not* to call a tool, and cases where a tool returns an error and the model recovers.
 
+### Worked example: one tool-call training row
+
+A training row is a conversation plus the tool schemas, stored as structured data and rendered to text by the chat template at training time, exactly as at inference. The script below builds one row, renders it with Qwen2.5's template (only the tokenizer is downloaded) and computes the loss mask.
+
+```python title="sft_row.py"
+from transformers import AutoTokenizer
+
+tok = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-0.5B-Instruct")
+tools = [{"type": "function", "function": {
+    "name": "lookup_ticket", "description": "Get status, title and owner of a support ticket.",
+    "parameters": {"type": "object", "required": ["ticket_id"],
+                   "properties": {"ticket_id": {"type": "string", "description": "e.g. 'T-1001'"}}}}}]
+row = {"tools": tools, "messages": [
+    {"role": "system", "content": "You are a support assistant. Never guess ticket details."},
+    {"role": "user", "content": "Who owns T-1001?"},
+    {"role": "assistant", "content": "", "tool_calls": [{"type": "function", "function": {
+        "name": "lookup_ticket", "arguments": {"ticket_id": "T-1001"}}}]},
+    {"role": "tool", "name": "lookup_ticket", "content": '{"status": "open", "owner": "alice"}'},
+    {"role": "assistant", "content": "T-1001 is owned by alice."},
+]}
+text = tok.apply_chat_template(row["messages"], tools=row["tools"], tokenize=False)
+print(text)
+
+# Loss mask: train only on assistant turns (the tool call and the final answer).
+enc = tok(text, return_offsets_mapping=True, add_special_tokens=False)
+labels, start, marker = [-100] * len(enc["input_ids"]), 0, "<|im_start|>assistant\n"
+while (a := text.find(marker, start)) != -1:
+    lo = a + len(marker)
+    hi = text.find("<|im_end|>", lo) + len("<|im_end|>")
+    for i, (s, e) in enumerate(enc["offset_mapping"]):
+        if s >= lo and e <= hi:
+            labels[i] = enc["input_ids"][i]
+    start = hi
+kept = [i for i, l in enumerate(labels) if l != -100]
+print(f"{len(labels)} tokens, {len(kept)} trained on:")
+print(repr(tok.decode([labels[i] for i in kept])))
+```
+
+The rendered text is what the model actually trains on:
+
+```text
+<|im_start|>system
+You are a support assistant. Never guess ticket details.
+
+# Tools
+
+You may call one or more functions to assist with the user query.
+
+You are provided with function signatures within <tools></tools> XML tags:
+<tools>
+{"type": "function", "function": {"name": "lookup_ticket", "description": "Get status, title and owner of a support ticket.", "parameters": {"type": "object", "required": ["ticket_id"], "properties": {"ticket_id": {"type": "string", "description": "e.g. 'T-1001'"}}}}}
+</tools>
+
+For each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:
+<tool_call>
+{"name": <function-name>, "arguments": <args-json-object>}
+</tool_call><|im_end|>
+<|im_start|>user
+Who owns T-1001?<|im_end|>
+<|im_start|>assistant
+<tool_call>
+{"name": "lookup_ticket", "arguments": {"ticket_id": "T-1001"}}
+</tool_call><|im_end|>
+<|im_start|>user
+<tool_response>
+{"status": "open", "owner": "alice"}
+</tool_response><|im_end|>
+<|im_start|>assistant
+T-1001 is owned by alice.<|im_end|>
+```
+
+```text
+256 tokens, 38 trained on:
+'<tool_call>\n{"name": "lookup_ticket", "arguments": {"ticket_id": "T-1001"}}\n</tool_call><|im_end|>T-1001 is owned by alice.<|im_end|>'
+```
+
+Three things to notice. The template, not your code, wrote the tool instructions into the system turn and wrapped the tool result in a `user` turn with `<tool_response>` tags; a different model family renders the same row differently, which is why you store rows as structured `messages` + `tools` and never as pre-rendered text. Only 38 of 256 tokens carry loss: the tool call and the final answer, each with its closing `<|im_end|>` so the model learns to stop. And the tool result is context, not a target: training on it would teach the model to invent tool outputs. TRL's `SFTTrainer` accepts rows in this `messages` + `tools` shape and applies the template for you ([SFT](../post-training/sft.md)); check on a rendered example that its assistant-only loss option masks what you expect.
+
+A useful dataset mixes four kinds of row: a call followed by an answer (above), several calls in sequence, a request that needs **no** tool, and a tool error followed by a corrected call.
+
 **RL with tool environments.** For multi-step tasks with checkable outcomes (tests pass, the ticket gets the right label, the answer matches), you can run the agent in a sandboxed environment and optimize task success with RL, the same idea as [RL with verifiable rewards](../post-training/reasoning-rl.md) but with tool calls inside each rollout. Practical notes: mask tool-result tokens from the policy loss, as with SFT; make environments fast and resettable because you need many rollouts; and design rewards carefully, since agents are very good at finding shortcuts (editing the test instead of fixing the code).
 
 ## Evaluating agents
@@ -409,7 +490,176 @@ Agents are harder to evaluate than single calls because there are many valid pat
 - **Sandbox the evaluation.** Use fake or containerized tools and data, never production systems. Record and replay tool responses where possible so runs are reproducible and cheap.
 - **Log full traces in production** (every model input, tool call and result). Most agent debugging is reading traces, and failed traces become new eval cases.
 
+### Worked example: a task-success loop
+
+The harness from [Testing the loop with a fake model](#testing-the-loop-with-a-fake-model) is already an evaluation rig: `run_agent` takes any `chat_fn` and returns the answer and the full trace. An eval adds a task list with programmatic checks, repeats each task, and aggregates. Here the model is a stand-in that makes the right call most of the time, skips the tool 15% of the time and sends a wrong argument name 15% of the time; swap in the real `agent.chat` to evaluate a model.
+
+```python title="eval_agent.py"
+import json, random
+import agent
+
+TASKS = [  # (request, tool the agent should call, arguments, check on the final answer)
+    ("Who owns T-1001?",          "lookup_ticket", {"ticket_id": "T-1001"},     lambda a: "alice" in a),
+    ("Is T-1002 open or closed?", "lookup_ticket", {"ticket_id": "T-1002"},     lambda a: "closed" in a),
+    ("What is 17 * 23 + 1?",      "calculator",    {"expression": "17*23+1"},   lambda a: "392" in a),
+    ("Who owns T-9999?",          "lookup_ticket", {"ticket_id": "T-9999"},     lambda a: "no ticket" in a),
+]
+
+def fake_model(tool, args, rng, p_skip=0.15, p_bad_args=0.15):
+    """Stands in for an LLM: usually makes the right call, sometimes guesses or sends bad arguments."""
+    def chat_fn(messages, tools):
+        if messages[-1]["role"] == "tool":                     # after a tool result: answer from it
+            return {"role": "assistant", "content": f"Result: {messages[-1]['content']}"}
+        if rng.random() < p_skip:                              # failure 1: answer without the tool
+            return {"role": "assistant", "content": "I believe bob owns it."}
+        bad = rng.random() < p_bad_args                        # failure 2: wrong argument name
+        payload = {"id": "x"} if bad else args
+        return {"role": "assistant", "content": None, "tool_calls": [{"id": "c1", "type": "function",
+                "function": {"name": tool, "arguments": json.dumps(payload)}}]}
+    return chat_fn
+
+K, rng = 20, random.Random(0)
+total_pass = total_all = 0
+for request, tool, args, check in TASKS:
+    passes, steps, errors = 0, 0, 0
+    for _ in range(K):                                         # agents are stochastic: repeat each task
+        answer, msgs = agent.run_agent(request, chat_fn=fake_model(tool, args, rng), verbose=False)
+        tool_msgs = [m for m in msgs if m["role"] == "tool"]
+        passes += check(answer)                                # task success: programmatic check
+        steps += len(tool_msgs)                                # trajectory: how many tool calls
+        errors += sum(m["content"].startswith("error") for m in tool_msgs)   # ...and how many failed
+    total_pass += passes; total_all += passes == K
+    print(f"{request:28s} pass {passes}/{K}  tool calls/run {steps / K:.2f}  tool errors {errors}")
+print(f"task success {total_pass / (K * len(TASKS)):.0%}   tasks passing all {K} runs: {total_all}/{len(TASKS)}")
+```
+
+```text
+Who owns T-1001?             pass 18/20  tool calls/run 1.00  tool errors 2
+Is T-1002 open or closed?    pass 16/20  tool calls/run 0.90  tool errors 2
+What is 17 * 23 + 1?         pass 15/20  tool calls/run 0.85  tool errors 2
+Who owns T-9999?             pass 12/20  tool calls/run 0.70  tool errors 2
+task success 76%   tasks passing all 20 runs: 0/4
+```
+
+The two aggregate numbers tell different stories: 76% of runs succeed, and not one task succeeds every time. The trajectory columns say why. Tool errors (bad arguments) account for two failures per task, and a tool-calls-per-run figure below 1.0 means the agent answered without looking anything up. The last task is the one to copy into your own suite: the correct behavior is to report that the ticket does not exist, and an agent that guesses fails it. With 20 runs per task these rates are still noisy; [How big must an eval set be?](../pretraining/evaluation.md#how-big-must-an-eval-set-be) gives the error bars.
+
 Public benchmarks such as SWE-bench (software engineering), tau-bench (tool use with simulated users and policies) and GAIA (assistant tasks) are useful for comparing models; your own task suite is what tells you whether your agent works.
+
+## Lab: Projects 2 and 3 as tools
+
+This lab turns two project deliverables into tools for the agent on this page, then exposes one of them over MCP. The result is an assistant that can triage an incident with your fine-tuned model and look up the fix in your knowledge base.
+
+!!! note "What was run"
+    The tool registration and the agent loop were run with both backends stubbed (`test_lab.py` below). The calls to a live triage model and a live `/ask` service, and the MCP server, need Projects 2 and 3 running and were not executed here.
+
+**You need:** the triage model from [Project 2](../projects/p2-finetune.md) behind an OpenAI-compatible server (its "Merging and serving" step), the `/ask` service from [Project 3](../projects/p3-rag.md) on port 8080 (`uvicorn app:app --port 8080`), and a tool-calling chat model for the agent itself (the `vllm serve ... --enable-auto-tool-choice` command above; it can be the same server as the triage model if you serve the adapter with `--lora-modules`).
+
+**Step 1. Wrap both as tools.** Save `agent.py` from this page next to this file. Each wrapper takes one string and returns a short JSON string, which is all the agent loop requires.
+
+```python title="lab_tools.py"
+"""Register Project 2's triage model and Project 3's /ask endpoint as tools for agent.py."""
+import json, os, sys, urllib.request
+import agent
+
+sys.path.insert(0, os.environ.get("P2_DIR", "../p2_incident_triage"))   # for inference.py, schema.py, prompts.py
+
+def triage_incident(incident_text: str) -> str:
+    from inference import OpenAIBackend, triage                # Project 2: generate -> validate -> retry
+    backend = OpenAIBackend(base_url=os.environ.get("TRIAGE_BASE_URL", "http://localhost:8000/v1"),
+                            model=os.environ.get("TRIAGE_MODEL", "triage"))
+    out = triage(backend, incident_text)
+    return json.dumps(out["triage"] if out["ok"] else {"error": out["error"]})
+
+def ask_docs(question: str) -> str:
+    req = urllib.request.Request(                              # Project 3: POST /ask
+        os.environ.get("RAG_URL", "http://localhost:8080/ask"),
+        data=json.dumps({"question": question}).encode(),
+        headers={"Content-Type": "application/json",
+                 "X-API-Key": os.environ.get("RAG_API_KEY", "public-demo-key")})   # the USER's key
+    with urllib.request.urlopen(req, timeout=120) as r:
+        out = json.load(r)
+    return json.dumps({"answer": out["answer"], "citations": out["citations"], "abstained": out["abstained"]})
+
+agent.TOOLS.update(triage_incident=triage_incident, ask_docs=ask_docs)
+agent.SCHEMAS += [
+    agent._schema("triage_incident", "Classify an incident from its alerts and logs. Returns JSON with "
+                  "severity, category, probable root cause, next steps and who to escalate to.",
+                  "incident_text", "the raw alert, log and metric text"),
+    agent._schema("ask_docs", "Answer a question from the support knowledge base, with citations. "
+                  "Use for how-to, error-code and policy questions.", "question", "a full question"),
+]
+
+if __name__ == "__main__":
+    answer, _ = agent.run_agent(" ".join(sys.argv[1:]))
+    print(answer)
+```
+
+Two design points. `triage_incident` calls Project 2's `triage()` and not the model directly, so the agent only ever sees output that passed the schema and business-rule checks. `ask_docs` forwards the **user's** API key: the RAG service decides what the caller may read, and an agent must not widen that by using a more privileged key of its own.
+
+**Step 2. Test the plumbing without any server.** Stub the two functions and script the model, as in the fake-model test:
+
+```python title="test_lab.py"
+import json
+import agent, lab_tools
+
+def call(i, name, args):                       # same helpers as test_agent.py
+    return {"role": "assistant", "content": None, "tool_calls": [{"id": f"c{i}", "type": "function",
+            "function": {"name": name, "arguments": json.dumps(args)}}]}
+
+def scripted(responses):
+    it = iter(responses)
+    return lambda messages, tools: (r(messages) if callable(r := next(it)) else r)
+
+# stub the two backends so the plumbing can be tested with nothing running
+agent.TOOLS["triage_incident"] = lambda incident_text: json.dumps({"severity": "SEV2", "escalate_to": "database"})
+agent.TOOLS["ask_docs"] = lambda question: json.dumps({"answer": "Restart the agent [1].", "citations": [1]})
+
+fake = scripted([
+    call(1, "triage_incident", {"incident_text": "pg primary: replication lag 340s, disk 97%"}),
+    call(2, "ask_docs", {"question": "How do I fix replication lag?"}),
+    lambda m: {"role": "assistant", "content": f"{json.loads(m[3]['content'])['severity']}; {json.loads(m[-1]['content'])['answer']}"},
+])
+answer, msgs = agent.run_agent("Triage this and tell me the runbook step.", chat_fn=fake, verbose=False)
+assert answer == "SEV2; Restart the agent [1]." and len(agent.SCHEMAS) == 5
+print("lab plumbing ok:", answer)
+```
+
+```text
+lab plumbing ok: SEV2; Restart the agent [1].
+```
+
+**Step 3. Run it for real** (untested here):
+
+```bash
+export P2_DIR=../p2_incident_triage TRIAGE_BASE_URL=http://localhost:8000/v1 TRIAGE_MODEL=triage
+export RAG_URL=http://localhost:8080/ask RAG_API_KEY=support-demo-key
+export LLM_BASE_URL=http://localhost:8000/v1 LLM_MODEL=Qwen/Qwen2.5-7B-Instruct
+python lab_tools.py "Triage this incident, then find the runbook step for it: $(cat incident.txt)"
+```
+
+Expected behavior: one `triage_incident` call, one `ask_docs` call whose question mentions the root cause from the triage, then an answer that quotes the severity and cites the knowledge base. If the agent answers without calling `ask_docs`, tighten that tool's description; if it passes a summary to `triage_incident`, say in the description that the raw text is required.
+
+**Step 4. Expose the knowledge base as an MCP server**, so an IDE assistant or chat app can use it without your agent (untested here; written for `mcp` 2.x like the server above):
+
+```python title="docs_server.py"
+import os
+from mcp.server import MCPServer
+from lab_tools import ask_docs as _ask_docs
+
+mcp = MCPServer("support-docs")
+
+@mcp.tool()
+def ask_docs(question: str) -> str:
+    """Answer a question from the support knowledge base. Returns JSON with answer, citations, abstained."""
+    return _ask_docs(question)
+
+if __name__ == "__main__":
+    mcp.run()        # stdio; the host passes RAG_API_KEY in the server's environment
+```
+
+Check it with `mcp dev docs_server.py`, then register it in an MCP host. The API key comes from the environment the host launches the server with, so each user's installation carries that user's access level.
+
+**Step 5. Evaluate it.** Reuse `eval_agent.py`: write ten incident tasks whose checks are programmatic (the severity matches the label from Project 2's test set, the answer contains a citation, the agent abstains on a question the knowledge base cannot answer), run each five times with the real `agent.chat`, and report task success and the all-runs-pass count.
 
 ## Safety
 

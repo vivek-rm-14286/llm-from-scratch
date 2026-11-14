@@ -175,6 +175,8 @@ $$
 
 That is **REINFORCE** (Williams, 1992). In code, you sample episodes, compute $G_t$, and minimize `-(log_prob * G).mean()`. Intuitively, it is supervised learning on your own actions, with each action's log-likelihood weighted by how well things turned out afterwards. Good actions become more likely and bad ones less likely.
 
+One detail about discounting: with $\gamma < 1$, the exact gradient of the discounted $J$ carries an extra factor $\gamma^t$ on the term for step $t$. Nearly all implementations, including the ones on this page, drop that factor, which weights late steps the same as early ones.
+
 ```python title="reinforce_loss.py"
 def reinforce_loss(logits, actions, returns):
     # logits: (T, n_actions), actions: (T,), returns: (T,) reward-to-go G_t
@@ -201,7 +203,7 @@ That estimate has low variance, but it is biased whenever $V_\phi$ is wrong, whi
 
 ### Generalized Advantage Estimation (GAE)
 
-GAE (Schulman et al., 2015) takes an exponentially weighted average of multi-step TD errors:
+GAE (Schulman et al., 2015) takes an exponentially weighted sum of one-step TD errors, which is the same as an exponentially weighted average of n-step advantage estimates:
 
 $$
 \hat{A}_t^{\text{GAE}(\gamma,\lambda)} = \sum_{l=0}^{\infty} (\gamma\lambda)^l\, \delta_{t+l}
@@ -382,7 +384,7 @@ Good starting points for PPO on small discrete-control tasks:
 | learning rate | 2.5e-4 to 3e-4 | Adam, `eps=1e-5`. Linear decay often helps. |
 | rollout size (T × N) | 1k to 8k steps | More envs give less correlated batches. |
 | epochs per rollout | 3 to 10 | More epochs = more sample reuse, more risk. |
-| minibatch | 4 to 32 per rollout | |
+| minibatches per rollout | 4 to 32 | |
 | clip ε | 0.1 to 0.2 | |
 | γ, λ | 0.99, 0.95 | Raise γ for long horizons. |
 | entropy coef | 0.0 to 0.01 | Higher if the policy collapses early. |
@@ -410,6 +412,63 @@ RL code fails quietly. It runs, nothing crashes, and the agent just does not lea
     - **Too-large learning rates for PPO.** The KL spikes, the clip fraction goes above 0.3, entropy collapses, and returns drop. Lower the learning rate or the number of epochs.
     - **Overestimation in DQN.** Q-values that grow without bound usually mean you need Double DQN, a slower target update, or a lower learning rate.
     - **Shaping that changes the optimum.** If the agent found a loophole, it is optimizing exactly what you asked for. Fix the reward, not the agent.
+
+## Build it
+
+**1. Test the GAE function against its two limits.** Start from the `gae` function in `ppo_cartpole.py`. Generate random `rew`, `val` of shape `(50, 3)` and a random `last_val` of shape `(3,)`, with `done` all zeros, and write three assertions:
+
+- with `lam=1.0`, the returned value targets (`adv + val`) equal the discounted Monte Carlo return, computed by your own backward loop `G[t] = rew[t] + gamma * G[t+1]` that starts from `last_val`
+- with `lam=0.0`, the advantages equal the one-step TD errors `rew[t] + gamma * val[t+1] - val[t]` (use `last_val` after the final step)
+- set `done[20, 1] = 1` and check the `lam=1.0` case again, with your loop resetting the running return at that step
+
+*Expected result:* all three `torch.allclose` checks pass (use `atol=1e-4`). If the third one fails, your reference loop or the function is leaking value across an episode boundary.
+
+**2. REINFORCE on CartPole.** Start from `reinforce_loss` above. Write the training loop: a 4 → 64 → 2 tanh MLP, Adam with learning rate `1e-2`, and one gradient step per episode on that episode's reward-to-go with `gamma=0.99`. Train for 600 episodes and print the mean return over the last 50 episodes every 100 episodes.
+
+*Expected result:* within the first 300 episodes the 50-episode mean passes **400** (500 is the maximum). It does not stay there: in three runs with different seeds, each one reached 400 to 500 and later fell back to around 100 before episode 600. That rise and collapse is the high variance of REINFORCE with a large learning rate, and it is the problem that the critic, GAE and PPO's clipping address. Compare the curve with `ppo_cartpole.py`.
+
+??? success "Solution sketch"
+    Task 1, the reference return and the first check:
+
+    ```python
+    torch.manual_seed(0)
+    T, N, gamma = 50, 3, 0.99
+    rew, val, last = torch.randn(T, N), torch.randn(T, N), torch.randn(N)
+    done = torch.zeros(T, N)
+
+    def mc_return(rew, done, last):
+        G, run = torch.zeros_like(rew), last
+        for t in reversed(range(rew.shape[0])):
+            run = rew[t] + gamma * run * (1 - done[t])
+            G[t] = run
+        return G
+
+    adv, ret = gae(rew, val, done, last, gamma, lam=1.0)
+    assert torch.allclose(ret, mc_return(rew, done, last), atol=1e-4)
+
+    adv0, _ = gae(rew, val, done, last, gamma, lam=0.0)
+    next_val = torch.cat([val[1:], last[None]])
+    assert torch.allclose(adv0, rew + gamma * next_val - val, atol=1e-4)
+    ```
+
+    Task 2, the body of the episode loop:
+
+    ```python
+    obs, acts, rews, done = [], [], [], False
+    s, _ = env.reset(seed=ep)
+    while not done:
+        o = torch.as_tensor(s, dtype=torch.float32)
+        a = torch.distributions.Categorical(logits=pi(o)).sample().item()
+        s, r, term, trunc, _ = env.step(a)
+        obs.append(o); acts.append(a); rews.append(r)
+        done = term or trunc
+    G, run = [], 0.0
+    for r in reversed(rews):                      # reward-to-go, computed backward
+        run = r + gamma * run
+        G.append(run)
+    loss = reinforce_loss(pi(torch.stack(obs)), torch.tensor(acts), torch.tensor(G[::-1]))
+    opt.zero_grad(); loss.backward(); opt.step()
+    ```
 
 ## Check your understanding
 

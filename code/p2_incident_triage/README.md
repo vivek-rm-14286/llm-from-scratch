@@ -9,7 +9,7 @@ raw monitoring alerts, log snippets and metrics into strict triage JSON:
  "escalate_to": "database-oncall", "confidence": 0.9}
 ```
 
-Full walkthrough: https://vivek-rm-14286.github.io/llm-from-scratch/projects/p2-finetune/
+Full walkthrough: https://vivek-rm-14286.github.io/llm-from-scratch/#/projects/p2-finetune
 
 ## Files
 
@@ -21,23 +21,31 @@ Full walkthrough: https://vivek-rm-14286.github.io/llm-from-scratch/projects/p2-
 | `schema.py` | Pydantic schema + JSON extraction (guardrails) | no |
 | `inference.py` | Triage with validation + retry, OpenAI-compatible or local HF backend | HF backend only |
 | `train_qlora.py` | QLoRA SFT with transformers + peft + trl + bitsandbytes | yes |
-| `evaluate.py` | Validity, field accuracy, severity confusion matrix, baseline comparison | depends on backend |
+| `evaluate.py` | Validity, field accuracy, severity confusion matrix, baseline comparison; `--self-check` needs no model | depends on backend |
 | `merge_adapter.py` | Merge LoRA into base weights for serving | no (CPU ok) |
 
 ## Quickstart
 
 ```bash
-python -m venv .venv && source .venv/bin/activate
+uv venv && source .venv/bin/activate      # or python -m venv .venv
 
 # 1. Data (no dependencies)
 python generate_data.py --out data --n-per-template 120
 
-pip install -r requirements.txt
+uv pip install -r requirements.txt        # bitsandbytes is installed on Linux only
+
+# 1b. Smoke test, no model: gold answers replayed through the pipeline; prints SELF-CHECK PASS
+python evaluate.py --self-check
 
 # 2. Baseline: prompt the base model (serve it first, e.g. with vLLM)
 vllm serve Qwen/Qwen2.5-7B-Instruct --max-model-len 8192 &
 LLM_BASE_URL=http://localhost:8000/v1 python evaluate.py --model Qwen/Qwen2.5-7B-Instruct \
     --few-shot 3 --name baseline --limit 200
+
+#    No 24 GB GPU? Use Ollama on a Mac, or the local HF backend with the 1.5B model:
+# ollama pull qwen2.5:7b
+# LLM_BASE_URL=http://localhost:11434/v1 python evaluate.py --model qwen2.5:7b --few-shot 3 --name baseline --limit 200
+# python evaluate.py --backend hf --no-4bit --model Qwen/Qwen2.5-1.5B-Instruct --few-shot 3 --name baseline --limit 200
 
 # 3. Train (single 24 GB GPU)
 python train_qlora.py --model Qwen/Qwen2.5-7B-Instruct --data data --out out/qwen7b-triage
@@ -69,7 +77,7 @@ vllm serve out/qwen7b-triage-merged --served-model-name triage --max-model-len 8
 **GGUF via llama.cpp, then Ollama:**
 
 ```bash
-git clone https://github.com/ggml-org/llama.cpp && pip install -r llama.cpp/requirements.txt
+git clone https://github.com/ggml-org/llama.cpp && uv pip install -r llama.cpp/requirements.txt
 python llama.cpp/convert_hf_to_gguf.py out/qwen7b-triage-merged --outfile triage-f16.gguf --outtype f16
 # build llama.cpp (cmake -B build && cmake --build build --config Release), then:
 ./llama.cpp/build/bin/llama-quantize triage-f16.gguf triage-q4_k_m.gguf Q4_K_M

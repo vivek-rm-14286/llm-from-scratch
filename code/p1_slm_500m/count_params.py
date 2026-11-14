@@ -62,13 +62,15 @@ def main():
     eff = args.peak_tflops * 1e12 * args.mfu
     print(f"\ntraining FLOPs/token ~ {fpt / 1e9:.2f} GFLOP "
           f"(6N = {6 * actual / 1e9:.2f}, attention = {(fpt - 6 * actual) / 1e9:.2f})")
-    print(f"assuming {args.peak_tflops:.0f} TFLOPS peak at {args.mfu:.0%} MFU "
-          f"-> {eff / 1e12:.0f} TFLOPS effective per GPU")
+    print(f"assuming {args.peak_tflops:.0f} TFLOP/s peak at {args.mfu:.0%} MFU "
+          f"-> {eff / 1e12:.0f} TFLOP/s effective per GPU")
     for D in args.tokens:
         total = fpt * D
         gpu_h = total / eff / 3600
-        print(f"  D = {D / 1e9:5.0f}B tokens ({D / actual:5.0f} tokens/param): "
-              f"{total:.2e} FLOPs  ~ {gpu_h:,.0f} GPU-hours")
+        d_str = f"{D / 1e9:5.0f}B" if D >= 1e9 else f"{D / 1e6:5.0f}M"
+        h_str = f"{gpu_h:,.0f}" if gpu_h >= 10 else f"{gpu_h:.2f}"
+        print(f"  D = {d_str} tokens ({D / actual:5.0f} tokens/param): "
+              f"{total:.2e} FLOPs  ~ {h_str} GPU-hours")
 
 
 if __name__ == "__main__":

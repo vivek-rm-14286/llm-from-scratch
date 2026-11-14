@@ -33,7 +33,7 @@ Treat this as an engineering metaphor, not a claim about brains. In ML systems i
 
 A System 1 model is a **policy** in the RL sense, $a_t = \pi(o_t)$, evaluated inside a control loop with a hard deadline. Examples:
 
-- **Game agents.** A bot that has to choose an action every frame. At 60 frames per second, the whole frame (physics, rendering, input, AI) gets about 16.7 ms. The policy should take a small fraction of that, ideally well under 1 ms. The agent in [Project 4](../projects/p4-decision-model.md) is an MLP with about 20k parameters that runs in microseconds.
+- **Game agents.** A bot that has to choose an action every frame. At 60 frames per second, the whole frame (physics, rendering, input, AI) gets about 16.7 ms. The policy should take a small fraction of that, ideally well under 1 ms. The agent in [Project 4](../projects/p4-decision-model.md) is an MLP with about 23k parameters that runs in microseconds.
 - **Robot visuomotor control.** Camera images and joint states in, joint targets out, at tens to hundreds of Hz. Missing a deadline here means jerky or unsafe motion, not just a slow answer.
 - **Low-level controllers in general:** drone stabilization, legged locomotion, autonomous-driving trajectory tracking. Many of these are trained with RL in simulation (see [DQN & PPO](policy-methods.md)) and deployed as small networks.
 
@@ -60,7 +60,7 @@ Measure **tail latency** (p99) as well as the mean. A controller that usually ta
 
 ### Designing a small, fast policy
 
-- **Keep inputs compact and informative.** Engineered features (ray distances, relative goal direction, velocities) let a 20k-parameter MLP do what would otherwise need a CNN on pixels. When you do need pixels, use small, low-resolution crops and a lightweight encoder.
+- **Keep inputs compact and informative.** Engineered features (ray distances, relative goal direction, velocities) let a 23k-parameter MLP do what would otherwise need a CNN on pixels. When you do need pixels, use small, low-resolution crops and a lightweight encoder.
 - **Pick shallow, wide-enough architectures.** 2-3 layers of 64-256 units for vector observations. For images, a few strided convolutions, or a small pretrained encoder that you freeze or distill.
 - **Predict action chunks.** Outputting the next $k$ actions at once (with the loop executing or blending them) lets a slower network still drive a fast loop, and smooths motion.
 - **Do the inference engineering:** batch size 1, a single thread for small models (lower jitter), ONNX Runtime or TensorRT, half precision or int8 where accuracy allows, and no Python in the hot loop for the most demanding cases.
@@ -124,10 +124,10 @@ flowchart LR
 
 Two humanoid-robot systems announced in 2025 describe themselves in exactly these terms:
 
-- **Figure's Helix** pairs a "System 2" VLM, which handles scene understanding and language at a low rate, with a much smaller "System 1" visuomotor policy that turns System 2's latent output plus high-rate sensor input into continuous control of the upper body at a much higher rate. Figure describes the two as trained end-to-end so that System 1 learns to follow System 2's latent intent.
-- **NVIDIA's Isaac GR00T N1**, an openly released foundation model for humanoids, has a System 2 built on a pretrained VLM that interprets images and instructions, and a System 1 action module, a diffusion transformer trained with flow matching, that generates motor actions conditioned on System 2's representations. The NVIDIA paper describes training on a mix of real robot data, human videos and synthetic data.
+- **Figure's Helix** pairs a "System 2" VLM, which handles scene understanding and language at a low rate, with a much smaller "System 1" visuomotor policy that turns System 2's latent output plus high-rate sensor input into continuous control of the upper body at a much higher rate. The two are trained end-to-end, so System 1 learns to follow System 2's latent intent.
+- **NVIDIA's Isaac GR00T N1**, an openly released foundation model for humanoids, has a System 2 built on a pretrained VLM that interprets images and instructions, and a System 1 action module, a diffusion transformer trained with flow matching, that generates motor actions conditioned on System 2's representations. It is trained on a mix of real robot data, human videos and synthetic data.
 
-For exact parameter counts and control rates, read the primary sources (Figure's Helix announcement and the GR00T N1 paper linked below). The architectural point matters more than the numbers here: **the slow model never sits inside the fast control loop.** The two run asynchronously. System 1 always acts on the latest available System 2 output, even if that output is a few hundred milliseconds old.
+The architectural point matters more than the exact parameter counts and control rates: **the slow model never sits inside the fast control loop.** The two run asynchronously. System 1 always acts on the latest available System 2 output, even if that output is a few hundred milliseconds old.
 
 The same pattern shows up outside robotics:
 
@@ -227,7 +227,7 @@ Rules of thumb:
 - **Use System 1 alone** when the task is narrow, the inputs are well covered by training data, and latency matters. Most game AI and low-level control fall here.
 - **Use System 2 alone** when there is no real-time constraint and the problem is open-ended: research, multi-step tool use, novel instructions.
 - **Use both** when you need real-time action *and* open-ended understanding: instruction-following robots, game NPCs that hold conversations, agents in fast environments.
-- **Escalate on uncertainty.** Use System 1's confidence (a calibrated softmax, an ensemble's disagreement, an out-of-distribution score) to decide when to ask System 2. Calibration is covered on the [next page](routing-models.md).
+- **Escalate on uncertainty.** Use System 1's confidence (a calibrated softmax, an ensemble's disagreement, an out-of-distribution score) to decide when to ask System 2. Calibration is covered in [Decision Models for Routing & Classification](routing-models.md#calibration).
 - **Distill over time.** Log System 2's decisions in production and periodically distill the common cases into System 1, so expensive reasoning is reserved for the cases that need it.
 
 !!! warning "Common pitfalls"

@@ -270,7 +270,7 @@ FlashAttention (Dao et al., 2022) does not change the math; it produces exactly 
 3. Never materializes the full $T \times T$ matrix; memory is $O(T)$ instead of $O(T^2)$.
 4. Recomputes the scores in the backward pass rather than storing them (cheaper than the memory traffic).
 
-The online softmax trick is what makes step 2 possible: you can compute $\mathrm{softmax}$ incrementally by tracking the running max $m$ and running sum $\ell$, and rescaling the partial output whenever a new block raises the max.
+The online softmax trick is what makes step 2 possible: you can compute $\mathrm{softmax}$ incrementally by tracking the running max $m$ and running sum $\ell$, and rescaling the partial output whenever a new block raises the max. [GPU Performance Engineering](../pretraining/gpu-performance.md) returns to this from the hardware side: memory bandwidth, kernel selection, and how to measure the difference.
 
 In PyTorch 2.x you get this for free via `F.scaled_dot_product_attention`, which dispatches to a FlashAttention kernel, a memory-efficient kernel, or a plain math fallback depending on hardware, dtype, and arguments:
 
@@ -294,6 +294,39 @@ y = F.scaled_dot_product_attention(q, k, v, is_causal=True)
     - **Fully masked rows.** If a row of scores is all $-\infty$ (e.g. padding on the left with a bad mask), softmax returns NaN. Make sure every query can see at least itself.
     - **Scaling twice.** SDPA already divides by $\sqrt{d_k}$. Don't pre-scale $q$ unless you pass `scale=` accordingly.
     - **Dropout at eval time.** SDPA's `dropout_p` is applied regardless of `model.eval()`; gate it with `self.training` as above.
+
+## Build it
+
+Starting point: the manual `attention()` function in `attention.py`. Use `q, k, v = torch.randn(3, 2, 4, 10, 16).unbind(0)` after `torch.manual_seed(0)` (batch 2, 4 heads, 10 positions, head size 16).
+
+1. **Expose the weights.** Add a `return_weights=False` argument that also returns the softmax weights. Done when:
+    - the weights have shape `(2, 4, 10, 10)` and every row sums to 1 (`torch.allclose`);
+    - `w.triu(1).abs().max()` is exactly `0.0` (no weight on the future);
+    - row 0 of every head is `[1, 0, 0, ...]`: the first token can only attend to itself;
+    - with `q` replaced by zeros, row 3 is `[0.25, 0.25, 0.25, 0.25, 0, ...]`: equal scores give uniform attention over the visible positions.
+2. **A sliding window.** Add a `window=None` argument so each position attends only to itself and the `window - 1` positions before it. With `window=4`, done when:
+    - the number of nonzero weights per row is `[1, 2, 3, 4, 4, 4, 4, 4, 4, 4]`;
+    - the output matches `F.scaled_dot_product_attention(q, k, v, attn_mask=allowed)` to `atol=1e-5`, where `allowed = (j <= i) & (j > i - 4)` for row index `i` and column index `j`;
+    - replacing `k` and `v` at positions 0 to 2 with new random values leaves the outputs at positions 6 and later unchanged, while position 5 changes. With full causal attention the same edit changes every later position.
+
+??? success "Solution sketch"
+    ```python
+    def attention(q, k, v, causal=True, window=None, return_weights=False):
+        T, Dh = q.size(-2), q.size(-1)
+        scores = q @ k.transpose(-2, -1) / math.sqrt(Dh)
+        i = torch.arange(T, device=q.device)[:, None]     # query position (row)
+        j = torch.arange(T, device=q.device)[None, :]     # key position (column)
+        blocked = torch.zeros(T, T, dtype=torch.bool, device=q.device)
+        if causal:
+            blocked |= j > i                              # the future
+        if window is not None:
+            blocked |= j <= i - window                    # too far in the past
+        weights = torch.softmax(scores.masked_fill(blocked, float("-inf")), dim=-1)
+        out = weights @ v
+        return (out, weights) if return_weights else out
+    ```
+
+    `blocked` uses the `masked_fill` convention (`True` = hidden); `allowed` for SDPA is its negation. Position 5 with a window of 4 sees positions 2 to 5, so it still depends on position 2; position 6 sees 3 to 6 and does not.
 
 ## Check your understanding
 

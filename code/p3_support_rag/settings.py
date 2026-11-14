@@ -20,8 +20,14 @@ QUERY_INSTRUCTION = os.getenv("QUERY_INSTRUCTION", "Represent this sentence for 
 RERANK_MODEL = os.getenv("RERANK_MODEL", "cross-encoder/ms-marco-MiniLM-L-6-v2")  # or BAAI/bge-reranker-base
 
 LLM_BASE_URL = os.getenv("LLM_BASE_URL", "http://localhost:11434/v1")  # Ollama default
-LLM_MODEL = os.getenv("LLM_MODEL", "qwen2.5:7b-instruct")
+LLM_MODEL = os.getenv("LLM_MODEL", "qwen2.5:7b")
 LLM_API_KEY = os.getenv("LLM_API_KEY", "not-needed-for-local")
+
+# Guardrails (guardrails.py): on by default; NIMBUS_GUARDRAILS=0 turns them off for comparisons.
+GUARDRAILS = os.getenv("NIMBUS_GUARDRAILS", "1") != "0"
+# Links and email addresses in an answer survive only if their host is one of these (or a subdomain).
+ALLOWED_LINK_DOMAINS = os.getenv(
+    "NIMBUS_ALLOWED_LINK_DOMAINS", "nimbus-monitor.example,nimbus-internal.example,proxy.internal").split(",")
 
 ACCESS_LEVELS = {"public": 0, "internal": 1, "restricted": 2}
 

@@ -2,6 +2,8 @@
 
     # 1-minute smoke test on a laptop (builds a synthetic dataset if needed)
     python train.py --tiny
+    # laptop warm-up: the ~31M model on TinyStories (see the project page, Part 0)
+    python train.py --config configs/p30m_laptop.json
 
     # one GPU
     python train.py --config configs/p500m_10b.json
@@ -48,8 +50,8 @@ def get_args():
     # batch
     ap.add_argument("--batch_size", type=int, default=16, help="micro-batch per GPU (sequences)")
     ap.add_argument("--total_batch_tokens", type=int, default=2**19, help="tokens per optimizer step")
-    # optimisation
-    ap.add_argument("--lr", type=float, default=3e-3)
+    # optimization
+    ap.add_argument("--lr", type=float, default=8e-4, help="peak learning rate")
     ap.add_argument("--min_lr_frac", type=float, default=0.0, help="final lr as fraction of lr")
     ap.add_argument("--weight_decay", type=float, default=0.1)
     ap.add_argument("--beta1", type=float, default=0.9)

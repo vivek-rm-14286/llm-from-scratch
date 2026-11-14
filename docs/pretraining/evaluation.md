@@ -8,6 +8,7 @@ Training loss tells you the optimizer is doing its job. It does not tell you whe
     - How multiple-choice evals are scored with log-likelihoods
     - Running `lm-evaluation-harness` and LightEval
     - Evaluating base vs chat models, contamination, and building your own eval sets
+    - How many items an eval set needs: standard error, the bootstrap, and paired comparisons
     - LLM-as-judge pitfalls, and why you should always read samples
 
 ## Validation loss and perplexity
@@ -167,13 +168,63 @@ Public benchmarks measure general ability. If you're training for a domain or ta
 3. **Make scoring automatic** where possible: exact match, regex on a final answer, unit tests, JSON schema validity, or log-likelihood MC.
 4. **Split**: a dev set you iterate on, and a held-out test set you look at rarely.
 5. **Freeze it** and version it. Never train on it, and keep it out of any data you scrape.
-6. **Estimate noise**: with $n$ examples and accuracy $p$, the standard error is $\sqrt{p(1-p)/n}$. At $n=200$ and $p=0.5$, that's about 3.5 points, so a 2-point difference is not meaningful.
+6. **Estimate noise**: with $n$ examples and accuracy $p$, the standard error is $\sqrt{p(1-p)/n}$. At $n=200$ and $p=0.5$, that's about 3.5 points, so a 2-point difference is not meaningful. The next section turns this into a sample-size rule.
 
 ```python
 import math
 def stderr(acc, n): return math.sqrt(acc * (1 - acc) / n)
 print(f"±{1.96 * stderr(0.5, 200):.3f} (95% CI)")   # about ±0.069
 ```
+
+## How big must an eval set be?
+
+An accuracy measured on $n$ items is an estimate, and its noise is easy to compute. Each item is right or wrong, so the count of correct answers is binomial and the **standard error** of the accuracy $p$ is
+
+$$
+\text{SE} = \sqrt{\frac{p(1-p)}{n}}, \qquad \text{95\% interval} \approx p \pm 1.96\,\text{SE}
+$$
+
+**Worked example.** 200 items at 85% accuracy: $\text{SE} = \sqrt{0.85 \times 0.15 / 200} = 0.025$, so the 95% interval is about $\pm 5$ points: the true accuracy is plausibly anywhere from 80% to 90%. A second model that scores 88% on the same set has not been shown to be better.
+
+The error shrinks with $\sqrt{n}$, so halving it costs four times the items:
+
+| Items $n$ | 95% interval at $p = 0.85$ | at $p = 0.5$ (worst case) |
+|---|---|---|
+| 100 | ±7.0 points | ±9.8 |
+| 200 | ±4.9 | ±6.9 |
+| 500 | ±3.1 | ±4.4 |
+| 1,000 | ±2.2 | ±3.1 |
+| 5,000 | ±1.0 | ±1.4 |
+
+To size a set, decide the smallest difference $d$ you need to detect and solve for $n$: resolving $d$ between two independent measurements needs roughly $n \approx 8\,p(1-p)/d^2$ items, which is about 400 items for a 5-point difference near 85% and about 10,000 for a 1-point difference.
+
+**Paired comparisons need far fewer.** When two models answer the *same* items, most of the noise is shared: both get the easy items right and the hard ones wrong. Compare them item by item and only the items where they disagree matter. The **bootstrap** does this without any formula: resample the item indices with replacement many times, recompute the statistic each time, and read the interval off the percentiles.
+
+```python title="eval_ci.py"
+import numpy as np
+
+n = 200
+a = np.arange(n) < 170                        # model A: 170 of 200 correct (use your per-item results)
+b = a.copy(); b[170:184] = True; b[:2] = False   # model B: fixes 14 of A's misses, breaks 2 -> 182 correct
+
+rng = np.random.default_rng(0)
+idx = rng.integers(0, n, size=(10_000, n))    # 10,000 resamples of the item indices, shared by A and B
+acc_a, diff = a[idx].mean(1), b[idx].mean(1) - a[idx].mean(1)
+se = lambda p: np.sqrt(p * (1 - p) / n)
+print(f"A {a.mean():.3f}  binomial +/-{1.96 * se(a.mean()):.3f}  bootstrap [{np.percentile(acc_a, 2.5):.3f}, {np.percentile(acc_a, 97.5):.3f}]")
+print(f"B - A {b.mean() - a.mean():+.3f}  paired bootstrap [{np.percentile(diff, 2.5):+.3f}, {np.percentile(diff, 97.5):+.3f}]")
+print(f"unpaired +/-{1.96 * np.hypot(se(a.mean()), se(b.mean())):.3f}")
+```
+
+```text
+A 0.850  binomial +/-0.049  bootstrap [0.800, 0.900]
+B - A +0.060  paired bootstrap [+0.025, +0.100]
+unpaired +/-0.063
+```
+
+The bootstrap interval for model A matches the binomial formula. The 6-point gain is inside the unpaired noise (±6.3 points), so two separate accuracy numbers would not settle it, and the paired interval excludes zero, because the models disagree on only 16 items and B wins 14 of them. Always keep per-item results, not just the final score, so you can run this.
+
+Three caveats. Items must be independent: 500 questions about 50 documents behave more like 50 items, so resample documents, not questions. The interval covers sampling noise only, not a benchmark that measures the wrong thing or has leaked into training data. And sampling temperature, prompt wording and few-shot choice add run-to-run variance on top; fix them, or repeat the run and include that spread.
 
 ## LLM-as-judge pitfalls
 
@@ -217,7 +268,7 @@ def vibes(model, tok, device="cuda", max_new=60, temperature=0.8, top_k=50):
     model.train()
 ```
 
-What to look for, roughly in the order a model learns it: real words instead of fragments; grammatical sentences; staying on topic; plausible facts; correct code syntax; coherent multi-sentence structure. Repetition loops, a single token repeated, or junk that looks like HTML/boilerplate point to data problems. See [Sampling, KV Cache & Quantization](../inference/inference.md) for the sampling methods used here.
+What to look for, roughly in the order a model learns it: real words instead of fragments; grammatical sentences; staying on topic; plausible facts; correct code syntax; coherent multi-sentence structure. Repetition loops, a single token repeated, or junk that looks like HTML/boilerplate point to data problems. See [Decoding: Sampling, KV Cache & Batching](../inference/inference.md#sampling-strategies) for the sampling methods used here.
 
 ```mermaid
 flowchart LR

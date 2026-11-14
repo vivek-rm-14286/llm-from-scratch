@@ -1,6 +1,6 @@
 # Modern Architectures & SLM Design
 
-The GPT you built on the previous page is essentially 2019 technology. A 2026 model like Llama 3.2, Qwen3, Gemma 3, or SmolLM3 looks almost the same from a distance: token embeddings, a stack of pre-norm blocks with attention and an MLP, a final norm, an LM head. The differences are a dozen targeted upgrades, each of which buys stability, speed, memory, or longer context. This page walks through each one with math and code, then turns to the question that matters most for this site: how do you *shape* a small model?
+The GPT you built in [The Transformer, Line by Line](transformer.md) is essentially 2019 technology. A 2026 model like Llama 3.2, Qwen3, Gemma 3, or SmolLM3 looks almost the same from a distance: token embeddings, a stack of pre-norm blocks with attention and an MLP, a final norm, an LM head. The differences are a dozen targeted upgrades, each of which buys stability, speed, memory, or longer context. This page walks through each one with math and code, then turns to the question that matters most for this site: how do you *shape* a small model?
 
 !!! abstract "What you'll learn"
     - RMSNorm, RoPE (with derivation and code), SwiGLU, and why biases disappeared
@@ -166,7 +166,7 @@ Llama dropped bias terms from all linear layers and norms. They add few paramete
 
 ## GQA and MQA: shrinking the KV cache
 
-During generation you cache every past token's keys and values (the **KV cache**), so each new token only computes its own Q, K, V. The cache size is
+During generation you cache every past token's keys and values (the **KV cache**, introduced in [The Transformer, Line by Line](transformer.md#a-first-look-at-the-kv-cache)), so each new token only computes its own Q, K, V. The cache size is
 
 $$
 \text{KV bytes} = 2 \times L \times n_{kv} \times d_h \times T \times B \times \text{bytes per value}
@@ -439,6 +439,66 @@ Notice the spread: Llama 3.2 1B is relatively shallow and wide (good GPU efficie
     - **MoE without load balancing.** Routing collapses within a few hundred steps; half your experts become dead weight.
     - **Picking a huge vocabulary for a tiny model** because a big model used it. Do the $|V| \cdot d$ arithmetic first.
     - **Using QK-norm but initializing its gains to zero** (as you might for Gemma-style $1+\gamma$ norms in ordinary code). Gains should start at 1 in the plain formulation.
+
+## Build it
+
+Starting point: `gpt.py` from [The Transformer, Line by Line](transformer.md) with the Shakespeare config `GPTConfig(vocab_size=65, block_size=256, n_layer=6, n_head=6, d_model=384, bias=False)`, which has 10,745,088 parameters, plus `RMSNorm`, `rope_cache` and `apply_rope` from this page.
+
+1. **RMSNorm and RoPE in the tiny GPT.** Replace every `LayerNorm` with `RMSNorm`, delete `pos_emb`, and rotate `q` and `k` with RoPE inside attention (register the `cos`/`sin` tables as non-persistent buffers). Done when:
+    - the parameter count is 10,646,784, a drop of exactly 98,304 = `block_size × d_model` (the position table; RoPE adds no parameters, and a bias-free LayerNorm has the same single gain vector as RMSNorm);
+    - with `bias=True` the drop is 103,296: the same 98,304 plus 13 norm biases of 384 each;
+    - the initial loss on random tokens is near $\ln 65 \approx 4.17$ (4.23 in a reference run);
+    - the causality test from [Embeddings & Attention](attention.md#full-implementation) passes: changing tokens from position 40 on leaves the logits before position 40 unchanged.
+2. **Grouped-query attention.** Replace the fused `qkv` projection with separate `q`, `k`, `v` projections and give the model 2 KV heads for its 6 query heads, as in `GQAttention` above. Done when:
+    - the parameter count is 9,467,136, a saving of 1,179,648 = 6 layers × 2 projections × 384 × (384 − 128);
+    - with `n_kv_heads=6` the count is back to 10,646,784;
+    - the causality test still passes;
+    - by the KV-cache formula, the cache at $T = 256$, batch 1, fp32 shrinks from 4.5 MiB to 1.5 MiB.
+
+??? success "Solution sketch"
+    ```python
+    class RopeAttention(CausalSelfAttention):
+        def forward(self, x, cos, sin):
+            B, T, C = x.shape
+            q, k, v = self.qkv(x).split(C, dim=2)
+            q, k, v = (t.view(B, T, self.n_head, C // self.n_head).transpose(1, 2)
+                       for t in (q, k, v))
+            q, k = apply_rope(q, cos[:T], sin[:T]), apply_rope(k, cos[:T], sin[:T])
+            y = F.scaled_dot_product_attention(q, k, v, is_causal=True)
+            return self.resid_drop(self.proj(y.transpose(1, 2).contiguous().view(B, T, C)))
+
+    class ModernBlock(nn.Module):
+        def __init__(self, cfg):
+            super().__init__()
+            self.ln1, self.ln2 = RMSNorm(cfg.d_model), RMSNorm(cfg.d_model)
+            self.attn, self.mlp = RopeAttention(cfg), MLP(cfg)
+
+        def forward(self, x, cos, sin):
+            x = x + self.attn(self.ln1(x), cos, sin)
+            return x + self.mlp(self.ln2(x))
+
+    class ModernGPT(GPT):
+        def __init__(self, cfg):
+            super().__init__(cfg)
+            del self.pos_emb
+            self.blocks = nn.ModuleList([ModernBlock(cfg) for _ in range(cfg.n_layer)])
+            self.ln_f = RMSNorm(cfg.d_model)
+            cos, sin = rope_cache(cfg.block_size, cfg.d_model // cfg.n_head)
+            self.register_buffer("cos", cos, persistent=False)
+            self.register_buffer("sin", sin, persistent=False)
+            self.apply(self._init_weights)
+
+        def forward(self, idx, targets=None):
+            x = self.drop(self.tok_emb(idx))
+            for block in self.blocks:
+                x = block(x, self.cos, self.sin)
+            logits = self.lm_head(self.ln_f(x))
+            if targets is None:
+                return logits
+            return logits, F.cross_entropy(logits.view(-1, logits.size(-1)), targets.reshape(-1))
+    ```
+
+    For task 2, swap `block.attn` for a bias-free version of `GQAttention` (without QK-norm, to keep the count comparable) with `n_kv_heads=2`. Each of `k` and `v` shrinks from 384 × 384 to 384 × 128 weights. Cache bytes: `2 * n_layer * n_kv * head_dim * T * 4` = 4,718,592 with 6 KV heads and 1,572,864 with 2.
 
 ## Check your understanding
 

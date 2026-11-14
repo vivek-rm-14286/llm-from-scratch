@@ -291,14 +291,14 @@ V(start) = 0.655
 
 From the start, the path goes right, right, down through the gap, then along the bottom row to G, and it stays away from the pit. Cells the agent rarely visits (bottom-left, for example) may show odd arrows. Their Q-values are barely trained, and that does not matter because the policy never goes there. Things worth trying:
 
-- Set `slip=0.0` and see the policy hug the pit, because there is no longer any risk of slipping in.
-- Set `gamma=0.5` and watch the agent stop caring about the distant goal.
+- Set `slip=0.0`. The route stays the same (the only path to G never borders the pit), but `V(start)` rises from about 0.66 to about 0.68, because no steps are wasted on slips.
+- Set `gamma=0.5` and watch `V(start)` fall to about zero. The goal is discounted so heavily that it barely outweighs the step costs along the way.
 - Set `eps_end=0.0` and decay faster. Sometimes the agent settles on a worse route and never finds the better one.
 
 !!! info "SARSA: the on-policy cousin"
     Replace `Q[s2].max()` with `Q[s2, a2]`, where `a2` is the action you will *actually* take next (including exploratory ones), and you get SARSA. SARSA learns the value of the ε-greedy policy it is running, so it learns safer routes near cliffs because it accounts for its own random moves. Q-learning learns the value of the greedy policy and ignores the risk of its own exploration.
 
-Tabular methods stop working once the state space is large or continuous: a table cannot generalize from one state to a similar one it has never visited. The fix is to replace the table with a neural network, which is DQN, covered on the [next page](policy-methods.md).
+Tabular methods stop working once the state space is large or continuous: a table cannot generalize from one state to a similar one it has never visited. The fix is to replace the table with a neural network, which is DQN, covered in [DQN & PPO](policy-methods.md).
 
 ## The Gymnasium API
 
@@ -373,6 +373,54 @@ To write your own environment, subclass `gymnasium.Env`. Define `observation_spa
     - **Judging from one seed.** RL results vary a lot between seeds. Compare methods over 3-5 seeds at minimum.
     - **Evaluating with exploration on.** Report greedy (or deterministic) performance on held-out seeds separately from training returns.
     - **Non-Markov observations.** If the right action depends on something the observation does not show, no amount of training will fix it. Add the missing information.
+
+## Build it
+
+Both tasks start from `gridworld_qlearning.py` above. Keep `GridWorld` and `q_learning` as they are and add to the file.
+
+**1. Value iteration with the known model.** Q-learning only samples transitions, but for this gridworld you know $P$ and $R$ exactly: with probability `1 - slip` the chosen move is executed, otherwise one of the four moves is picked uniformly (which can be the chosen one again). Write `value_iteration(env, gamma=0.95)` that repeats the Bellman optimality backup over every state and action until the largest change is below `1e-10`, and returns the `Q` table.
+
+*Expected result:* `Q[0].max()` is **0.649** with `slip=0.1` and **0.682** with `slip=0.0`. The Q-learning estimate printed above (0.655) should be within about 0.01 of the first number. That gap is sampling noise, and it is the check that your Q-learning code converged to the right values. From the start cell, "down" and "right" begin two routes of the same length, so either arrow is correct there.
+
+**2. SARSA.** Write `sarsa(env, ...)` with the same signature and ε schedule as `q_learning`, but bootstrap from the action the agent will actually take next: `target = r + gamma * Q[s2, a2]`.
+
+*Expected result:* the greedy arrows along the main route match Q-learning's, and `V(start)` comes out at about **0.62 to 0.63**, lower than Q-learning's 0.65. SARSA is evaluating the ε-greedy policy it runs (ε ends at 0.05), random moves included, so its values are slightly lower than those of the greedy policy.
+
+??? success "Solution sketch"
+    Value iteration: loop until convergence, building a new table from the old one.
+
+    ```python
+    def value_iteration(env, gamma=0.95, tol=1e-10):
+        Q = np.zeros((env.n_states, env.n_actions))
+        def move(r, c, a):
+            dr, dc = env.MOVES[a]
+            r2, c2 = r + dr, c + dc
+            ok = 0 <= r2 < env.h and 0 <= c2 < env.w and env.grid[r2][c2] != "#"
+            return (r2, c2) if ok else (r, c)
+        while True:
+            Q2 = np.zeros_like(Q)
+            for r in range(env.h):
+                for c in range(env.w):
+                    if env.grid[r][c] in "#GX":
+                        continue                              # walls and terminal cells have no value
+                    s = r * env.w + c
+                    for a in range(4):
+                        for a2 in range(4):                   # a2 = the move actually executed
+                            p = (1 - env.slip) * (a2 == a) + env.slip / 4
+                            r2, c2 = move(r, c, a2)
+                            cell = env.grid[r2][c2]
+                            if cell == "G":
+                                Q2[s, a] += p * 1.0
+                            elif cell == "X":
+                                Q2[s, a] += p * -1.0
+                            else:
+                                Q2[s, a] += p * (-0.01 + gamma * Q[r2 * env.w + c2].max())
+            if np.abs(Q2 - Q).max() < tol:
+                return Q2
+            Q = Q2
+    ```
+
+    SARSA: choose the first action before the step loop, choose `a2` right after each `env.step(a)` with the same ε-greedy rule, use `Q[s2, a2]` in the target, then set `s, a = s2, a2`. Everything else is identical to `q_learning`.
 
 ## Check your understanding
 

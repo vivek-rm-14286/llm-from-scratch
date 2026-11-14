@@ -24,9 +24,9 @@ Fine-tuning on instruction pairs mostly changes *format and style*: it surfaces 
 
 Famous examples: Code Llama (Llama 2 continued on hundreds of billions of code tokens), and many medical and multilingual variants of open models. The original DAPT paper showed that a second phase of pretraining on in-domain text improved downstream tasks across biomedical, CS, news and review domains, even for a model that was already strong.
 
-When it's *not* worth it: if you have under ~10M tokens of domain text, if the task is mostly about format or behaviour, or if retrieval would answer the questions (see [RAG](../rag/index.md)). Then SFT, LoRA ([LoRA & QLoRA](lora-qlora.md)) or RAG is cheaper. The [Fine-tuning overview](index.md) has a decision flowchart.
+When it's *not* worth it: if you have under ~10M tokens of domain text, if the task is mostly about format or behavior, or if retrieval would answer the questions (see [RAG](../rag/index.md)). Then SFT, LoRA ([LoRA & QLoRA](lora-qlora.md)) or RAG is cheaper. The [Fine-tuning overview](index.md) has a decision flowchart.
 
-The usual pipeline: **base model → CPT on domain text → SFT (and maybe preference tuning) on domain-flavoured instructions**. If you start from an instruct model instead, CPT will erode its chat behaviour; you'll need to redo post-training or merge the chat ability back in (merging, below, is a popular way to do that).
+The usual pipeline: **base model → CPT on domain text → SFT (and maybe preference tuning) on domain-flavored instructions**. If you start from an instruct model instead, CPT will erode its chat behavior; you'll need to redo post-training or merge the chat ability back in (merging, below, is a popular way to do that).
 
 ### Data mixing with replay
 
@@ -205,7 +205,7 @@ $$
 \theta_{\text{merged}} = \theta_{\text{base}} + \lambda \sum_i \tau_i
 $$
 
-$\lambda$ is a scaling factor, tuned on validation data (often 0.3-1.0). Negating a task vector *removes* a behaviour: $\theta_{\text{base}} - \lambda \tau_{\text{toxic}}$ reduces toxicity learned by a model fine-tuned on toxic text. Task arithmetic is the conceptual basis for TIES and DARE.
+$\lambda$ is a scaling factor, tuned on validation data (often 0.3-1.0). Negating a task vector *removes* a behavior: $\theta_{\text{base}} - \lambda \tau_{\text{toxic}}$ reduces toxicity learned by a model fine-tuned on toxic text. Task arithmetic is the conceptual basis for TIES and DARE.
 
 ### TIES
 
@@ -493,7 +493,7 @@ A merge is a new model; it needs the same evaluation as any other.
 - **Evaluate every constituent task** and a general-capability suite. A merge that's good at math and code but has lost instruction following is a regression. Use the harness and practices in [Evaluation](../pretraining/evaluation.md).
 - **Compare against the constituents** and against the simplest baseline (linear average). Fancy methods don't always win.
 - **Sweep the knobs** ($\lambda$, density, $p$, per-layer $t$) on a validation split, and report on a separate test split, since you're doing hyperparameter search.
-- **Check generation, not just benchmarks**: merges can produce repetition, broken chat formatting or wrong stop-token behaviour that multiple-choice evals don't catch.
+- **Check generation, not just benchmarks**: merges can produce repetition, broken chat formatting or wrong stop-token behavior that multiple-choice evals don't catch.
 - **Beware leaderboard merges.** Many merged models were selected by leaderboard score, which risks overfitting to (or contamination from) those benchmarks. Trust your own held-out evals.
 
 !!! warning "Common pitfalls"
@@ -508,7 +508,7 @@ A merge is a new model; it needs the same evaluation as any other.
 ## Check your understanding
 
 ??? question "You have 2 GB of internal engineering docs and want a model that knows your systems. CPT, SFT, or RAG?"
-    2 GB is roughly half a billion tokens: enough for continued pretraining to teach domain vocabulary and facts, followed by SFT on domain-flavoured instructions so it stays a usable assistant. But if the knowledge changes often or answers must cite sources, RAG is cheaper and easier to keep current, and many teams combine RAG with a light fine-tune instead. SFT alone on generated Q&A pairs is the weakest option for injecting this much knowledge.
+    2 GB is roughly half a billion tokens: enough for continued pretraining to teach domain vocabulary and facts, followed by SFT on domain-flavored instructions so it stays a usable assistant. But if the knowledge changes often or answers must cite sources, RAG is cheaper and easier to keep current, and many teams combine RAG with a light fine-tune instead. SFT alone on generated Q&A pairs is the weakest option for injecting this much knowledge.
 
 ??? question "Why re-warm the learning rate at the start of continued pretraining, and why to a lower peak than the original?"
     The released checkpoint ended with a tiny LR, which would make learning the new domain very slow. Jumping straight to a high LR from a converged point causes instability and forgetting. A short warmup lets the optimizer (with fresh Adam moments) stabilize, and a lower peak trades a little adaptation speed for much less forgetting of general ability.

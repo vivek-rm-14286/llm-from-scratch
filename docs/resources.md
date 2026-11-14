@@ -1,6 +1,6 @@
 # Resources
 
-A short, curated list of the courses, books, papers, and code that are most worth your time alongside this site. Each item is grouped with the section of the site it supports best.
+A short, curated list of the courses, books, papers, and code that are most worth your time alongside this site. Items are grouped by the section of the site they support best. Each lesson's own "Further reading" list has the papers for that topic.
 
 ## Foundations
 
@@ -30,9 +30,28 @@ A short, curated list of the courses, books, papers, and code that are most wort
 - **Hu et al., [LoRA](https://arxiv.org/abs/2106.09685)** and **Dettmers et al., [QLoRA](https://arxiv.org/abs/2305.14314)**.
 - **Rafailov et al., [Direct Preference Optimization](https://arxiv.org/abs/2305.18290)**.
 
+## Inference and serving
+
+- **Kwon et al., [Efficient Memory Management for Large Language Model Serving with PagedAttention](https://arxiv.org/abs/2309.06180)**: the vLLM paper; the clearest account of why serving is a memory-management problem. Read with [Decoding](inference/inference.md).
+- **[vLLM docs](https://docs.vllm.ai/)** and **[llama.cpp](https://github.com/ggml-org/llama.cpp)**: the two runtimes used in [Quantization & Serving](inference/serving.md), for GPU serving and for local or CPU inference.
+- **Leviathan et al., [Fast Inference from Transformers via Speculative Decoding](https://arxiv.org/abs/2211.17192)**.
+
 ## RAG
 
 - **Lewis et al., [Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks](https://arxiv.org/abs/2005.11401)** (2020): the paper that named RAG.
+
+## Applications: prompting and agents
+
+- **Yao et al., [ReAct: Synergizing Reasoning and Acting in Language Models](https://arxiv.org/abs/2210.03629)**: the reason-then-act pattern behind most agent loops, built in [Agents & Tool Use](applications/agents.md).
+- **[Model Context Protocol documentation](https://modelcontextprotocol.io/)**: the specification and SDKs for sharing tools between applications.
+- **[Prompt Engineering Guide](https://www.promptingguide.ai/)**: a broad, example-driven reference to read alongside [Prompt & Context Engineering](applications/prompting.md).
+
+## Safety, interpretability and production
+
+- **[OWASP Top 10 for LLM Applications](https://owasp.org/www-project-top-10-for-large-language-model-applications/)**: the standard checklist of application-level risks, starting with prompt injection. Read with [Safety, Red-Teaming & Guardrails](production/safety.md).
+- **Greshake et al., [Not What You've Signed Up For: Compromising Real-World LLM-Integrated Applications with Indirect Prompt Injection](https://arxiv.org/abs/2302.12173)**: the paper that laid out injection through retrieved content and tools.
+- **Elhage et al., [A Mathematical Framework for Transformer Circuits](https://transformer-circuits.pub/2021/framework/index.html)**: the starting point for mechanistic [Interpretability](production/interpretability.md).
+- **[NIST AI Risk Management Framework](https://www.nist.gov/itl/ai-risk-management-framework)**: a vocabulary for governing deployed systems, useful background for [LLMOps](production/llmops.md).
 
 ## Decision models and reinforcement learning
 

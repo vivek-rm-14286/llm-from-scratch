@@ -125,7 +125,7 @@ Applications need output a program can consume. There are three levels of reliab
 2. **Prefill.** Start the assistant turn with `{"` or the first key. Cheap and surprisingly effective.
 3. **Constrain the decoder.** At every step, mask the logits of all tokens that would make the output invalid. The output is then *guaranteed* to match the grammar. This is what vLLM's structured outputs, llama.cpp grammars, Outlines, XGrammar and the structured-output modes of hosted APIs do.
 
-Level 3 is simple to understand once you see it on your own model. The decoding loop from [the Transformer page](../llm/transformer.md) samples from `softmax(logits)`. Constrained decoding adds one step: compute the set of tokens that are legal in the current state, set every other logit to minus infinity, then sample.
+Level 3 is simple to understand once you see it on your own model. The decoding loop from [The Transformer, Line by Line](../llm/transformer.md) samples from `softmax(logits)`. Constrained decoding adds one step: compute the set of tokens that are legal in the current state, set every other logit to minus infinity, then sample.
 
 ```mermaid
 flowchart LR
@@ -228,7 +228,7 @@ How real libraries generalize this:
 !!! warning "Constraints can distort the distribution"
     Masking forces the model down paths it may consider unlikely. If your prompt does not tell the model about the format, a forced format can lower answer quality, because the model is writing something it did not "plan". Describe the schema in the prompt *and* constrain the decoder. Also watch for token boundary effects: forcing a key like `"team"` as characters when the model would naturally emit it as one merged token pushes it off-distribution. Good libraries handle this by allowing every tokenization that spells a legal string, as the decoder above does.
 
-For pure single-label decisions, you do not even need to generate: score the label tokens' logits directly ([Design A on the routing page](../decision/routing-models.md#design-a-score-the-option-labels-next-token-logits)).
+For pure single-label decisions, you do not even need to generate: score the label tokens' logits directly ([Design A in Decision Models for Routing & Classification](../decision/routing-models.md#design-a-score-the-option-labels-next-token-logits)).
 
 ## Composing calls
 
@@ -287,7 +287,7 @@ Summaries are lossy and errors compound, so test compaction with long conversati
 
 ### Caching prefixes
 
-Prefill (processing the prompt) costs compute proportional to its length. If many requests share the same prefix, such as a 3,000-token system prompt with tool schemas and examples, the server can reuse the [KV cache](../inference/inference.md) for that prefix instead of recomputing it. vLLM and SGLang do this automatically (automatic prefix caching, RadixAttention), and hosted APIs offer prompt caching at reduced price.
+Prefill (processing the prompt) costs compute proportional to its length. If many requests share the same prefix, such as a 3,000-token system prompt with tool schemas and examples, the server can reuse the [KV cache](../inference/inference.md#the-kv-cache) for that prefix (see [Paged attention](../inference/inference.md#paged-attention) for how servers share prefix blocks) instead of recomputing it. vLLM and SGLang do this automatically (automatic prefix caching, RadixAttention), and hosted APIs offer prompt caching at reduced price.
 
 The rule is to put **stable content first and variable content last**. A timestamp or user name at the top of the system prompt invalidates the cache for everything after it.
 

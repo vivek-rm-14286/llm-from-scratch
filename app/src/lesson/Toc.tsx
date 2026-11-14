@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 type Section = { id: string; text: string }
 
 /** "On this page" rail for wide screens, with the section in view highlighted. */
-export function Toc({ route, sections, ready }: { route: string; sections: Section[]; ready: boolean }) {
+export function Toc({ route, sections, ready, numbered }: { route: string; sections: Section[]; ready: boolean; numbered: boolean }) {
   const [active, setActive] = useState<string>('')
 
   useEffect(() => {
@@ -33,7 +33,7 @@ export function Toc({ route, sections, ready }: { route: string; sections: Secti
             <li key={s.id}>
               <a href={`#/${route}#${s.id}`}
                 className={`-ml-px flex gap-2 border-l-2 py-1 pr-1 pl-3 text-[12.5px] leading-snug ${active === s.id ? 'border-accent font-semibold text-accent' : 'border-transparent text-muted hover:text-ink'}`}>
-                <span className="font-mono text-[10px] leading-[1.6] opacity-70">{i + 1}</span>
+                {numbered && <span className="font-mono text-[10px] leading-[1.6] opacity-70">{i + 1}</span>}
                 <span>{s.text}</span>
               </a>
             </li>

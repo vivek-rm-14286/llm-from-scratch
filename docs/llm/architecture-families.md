@@ -5,12 +5,15 @@ The GPT you built in [The Transformer, Line by Line](transformer.md) is one memb
 !!! abstract "What you'll learn"
     - Encoder-only, encoder-decoder, decoder-only and prefix-LM: what changes (the mask and the objective) and what each is good for
     - The BERT masked-LM objective, implemented from scratch, and why encoders still win for classification, embeddings and reranking
-    - T5 span corruption and cross-attention, and why encoder-decoder lost favour at scale
+    - T5 span corruption and cross-attention, and why encoder-decoder lost favor at scale
     - State space models: the S4 intuition and Mamba's selective scan, with a from-scratch PyTorch implementation
     - Linear attention, RWKV and RetNet: attention rewritten as a recurrence
     - Hybrid models that interleave attention with SSM or linear layers
     - Masked diffusion language models and parallel decoding
     - A trade-off table to decide which family fits a problem
+
+!!! info "Elective"
+    This page is not needed for any project. It builds on [The Transformer, Line by Line](transformer.md) and [Modern Architectures & SLM Design](modern-architectures.md), and can be read at any point after them.
 
 ## The three transformer families
 
@@ -36,7 +39,7 @@ flowchart LR
 | Decoder-only | Causal | Next-token prediction | General generation, chat, reasoning, code |
 | Prefix-LM | Bidirectional over prefix, causal over the rest | Next-token on the suffix | Conditional generation in a single stack |
 
-## Encoder-only: BERT and masked language modelling
+## Encoder-only: BERT and masked language modeling
 
 A causal model cannot use the right-hand context: when it encodes the word "bank" in "the bank of the river", it has not seen "river" yet. An encoder removes the causal mask, so every token's representation is built from the whole sentence. That is ideal for *understanding* tasks, but it breaks next-token prediction: if every position can see every other, predicting token $t$ is trivial because token $t$ is in the input.
 
@@ -148,7 +151,7 @@ The input to the encoder is shorter than the original, and the target is short, 
 
 **Where encoder-decoders shine.** When input and output are clearly different sequences and the input is fully known up front: translation, summarization, and speech recognition. Whisper is an encoder-decoder (audio encoder, text decoder), and so are many dedicated translation models. The encoder runs once over the input; only the decoder runs per output token, and its self-attention cache covers only the output.
 
-**Why it lost favour at scale.**
+**Why it lost favor at scale.**
 
 - **Two stacks, awkward parameter split.** You must decide how many parameters go to each side, and for chat, the "input" and "output" are interleaved over many turns, so the boundary is artificial.
 - **Less training signal per token.** Span corruption only supervises the corrupted spans. A causal LM supervises every token.
@@ -426,7 +429,7 @@ For sequence length $T$, the qualitative picture:
 | Encoder-only (BERT) | Full | No generation; $O(T)$ activations | Limited (512 to 8k typical) | Best for classification, embeddings, reranking |
 | Encoder-decoder (T5) | Full | Encoder output + decoder KV cache | Moderate | Strong for seq2seq; less used for general chat |
 | Decoder-only transformer | Full, $O(T^2)$ attention | KV cache, grows $O(T)$ | Good with RoPE scaling, GQA, sliding windows | Strongest general models; exact recall |
-| SSM (Mamba) | Parallel scan, $O(T)$ | Fixed-size state, $O(1)$ in $T$ | Cheap, but recall degrades | Competitive on language modelling; weaker at copy and lookup |
+| SSM (Mamba) | Parallel scan, $O(T)$ | Fixed-size state, $O(1)$ in $T$ | Cheap, but recall degrades | Competitive on language modeling; weaker at copy and lookup |
 | Linear attention / RWKV / RetNet | Parallel or chunked, $O(T)$ | Fixed-size matrix state | Cheap, recall limited by state size | Close to SSMs; improving with gating and delta rules |
 | Hybrid (attention + SSM) | Full | Small KV cache (attention layers only) + state | Strong and memory-efficient | Close to transformers, growing adoption |
 | Masked diffusion | Full (bidirectional) | Reprocess sequence each step (no standard KV cache) | Moderate | Competitive at moderate scale; fastest decoding |

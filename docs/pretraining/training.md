@@ -21,7 +21,7 @@ $$
 
 ```python
 import torch.nn.functional as F
-loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1))
+loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.reshape(-1))
 ```
 
 **Reading the number.** Loss is in nats per token. At initialization the model should be roughly uniform over the vocabulary, so the loss should be about $\ln V$. For GPT-2's 50,257 tokens, $\ln 50257 \approx 10.8$. If your initial loss is 30, your initialization is broken. Perplexity is $e^{\mathcal{L}}$: a loss of 3.0 means perplexity about 20, "as uncertain as choosing among 20 tokens".
@@ -74,7 +74,7 @@ where $\hat m, \hat v$ are bias-corrected. Values that almost every LM recipe (G
 | $\beta_2$ | **0.95** | Lower than the default 0.999. $v$ adapts faster to sudden gradient changes, which reduces loss spikes. |
 | $\epsilon$ | 1e-8 | Some use 1e-5 at very large scale; tiny values can amplify updates for parameters with near-zero $v$. |
 | Weight decay $\lambda$ | 0.1 | Applied to matrices only, **not** biases, norm gains, or (often) embeddings. |
-| Peak LR | ~6e-4 (125M) down to ~1.5e-4 (larger) | Smaller models tolerate larger LRs. Sweep on a short run. |
+| Peak LR | ~6e-4 to 1.5e-3 for 125M-500M models at 0.25M-1M tokens per step (Project 1 uses 8e-4), falling to ~1.5e-4 to 3e-4 at multi-billion scale | Smaller models tolerate larger LRs. Sweep on a short run. |
 
 ```python
 def configure_optimizer(model, lr, weight_decay=0.1, betas=(0.9, 0.95), eps=1e-8):
@@ -181,7 +181,7 @@ FP8 training (H100 and newer, via Transformer Engine or `torchao`) is used at la
 
 ## torch.compile
 
-`model = torch.compile(model)` traces the model and fuses ops (layer norms, activations, residual adds) into fewer, faster kernels. Typical speedups for a GPT are 1.3x-2x. The first steps are slow while it compiles. Compile the model *after* moving it to the device; keep shapes static (fixed `seq_len`) to avoid recompiles.
+`model = torch.compile(model)` traces the model and fuses ops (layer norms, activations, residual adds) into fewer, faster kernels. Typical speedups for a GPT are 1.3x-2x. The first steps are slow while it compiles. Compile the model *after* moving it to the device; keep shapes static (fixed `seq_len`) to avoid recompiles. [GPU Performance Engineering](gpu-performance.md) covers compile modes and how to profile what is left.
 
 ## FlashAttention via SDPA
 
@@ -193,7 +193,7 @@ In PyTorch 2.x you get it through one call:
 y = F.scaled_dot_product_attention(q, k, v, is_causal=True)   # (B, H, T, d)
 ```
 
-PyTorch picks the FlashAttention kernel automatically when inputs are fp16/bf16 on a supported GPU. Don't pass an explicit mask with `is_causal=True`; passing a dense mask can force the slower path.
+PyTorch picks the FlashAttention kernel automatically when inputs are fp16/bf16 on a supported GPU. Don't pass an explicit mask with `is_causal=True`; passing a dense mask can force the slower path. [GPU Performance Engineering](gpu-performance.md) explains why the tiled kernel is faster.
 
 ## Activation checkpointing
 
@@ -256,7 +256,7 @@ def mfu(n_params, n_layer, d_model, seq_len, tokens_per_sec, peak_flops=989e12):
     return tokens_per_sec * flops_per_token / peak_flops
 ```
 
-Well-tuned single-GPU GPT training reaches roughly 40-55% MFU on A100/H100. Below ~25% usually means a bottleneck: data loading, small micro-batch, no `torch.compile`, no FlashAttention, or CPU-GPU sync points (calling `.item()` every step forces a sync; only do it when you log).
+Expect roughly 35-50% MFU when well tuned; below ~25% means something is wrong: data loading, small micro-batch, no `torch.compile`, no FlashAttention, or CPU-GPU sync points (calling `.item()` every step forces a sync; only do it when you log). [GPU Performance Engineering](gpu-performance.md) walks through finding and fixing each of these.
 
 ## What a healthy loss curve looks like
 
@@ -321,10 +321,10 @@ It costs nothing and is used in several stable large-scale recipes (OLMo 2, for 
 
 This script trains a GPT-style model on the shards from [Data Pipelines](data.md#tokenizing-at-scale-and-packing-into-shards). It includes everything on this page: bf16 autocast, `torch.compile`, SDPA/FlashAttention, gradient accumulation, AdamW with decay groups, WSD or cosine schedule, clipping, z-loss, eval, checkpointing with resume, and MFU logging. The model is a compact Llama-style architecture (RMSNorm, RoPE, SwiGLU); see [The Transformer, Line by Line](../llm/transformer.md) for a walk-through.
 
-```python title="train.py"
+```python title="train_gpt.py"
 """Single-GPU GPT pretraining. Usage:
-    python train.py                       # train / resume
-    python train.py --tiny                # CPU smoke test on random data
+    python train_gpt.py                   # train / resume
+    python train_gpt.py --tiny            # CPU smoke test on random data
 """
 import argparse, glob, json, math, os, time
 from dataclasses import dataclass, asdict
@@ -592,7 +592,7 @@ if __name__ == "__main__":
     main()
 ```
 
-The default config is a ~124M-parameter model at 524K tokens per step. On a single H100, expect on the order of a few hundred thousand tokens per second with compile and bf16; 20,000 steps is about 10B tokens. Run `python train.py --tiny` first to check everything works on CPU in seconds. The [500M project](../projects/p1-500m-model.md) scales this up.
+The default config is a ~124M-parameter model at 524K tokens per step. On a single H100, expect on the order of a few hundred thousand tokens per second with compile and bf16; 20,000 steps is about 10B tokens. Run `python train_gpt.py --tiny` first to check everything works on CPU in seconds. The [500M project](../projects/p1-500m-model.md) scales this up; Project 1 uses a separate, fuller script (its own `train.py`) with different flag names.
 
 !!! warning "Common pitfalls"
     - **Forgetting to divide the loss by `grad_accum`.** Your effective LR silently scales with accumulation steps.
@@ -602,6 +602,47 @@ The default config is a ~124M-parameter model at 524K tokens per step. On a sing
     - **Not saving optimizer state.** Resume causes a loss spike.
     - **Comparing loss across tokenizers.** A lower loss with a bigger vocab is not necessarily a better model; compare bits-per-byte or benchmarks instead.
     - **Not padding vocab size.** 50257 is an awkward size for GPU kernels; 50304 (multiple of 64) is measurably faster.
+
+## Build it
+
+Starting point: `train_gpt.py` and `schedules.py` from this page. Both tasks run on a laptop CPU.
+
+1. **An overfit mode.** First run `python train_gpt.py --tiny` and confirm the baseline: the loss starts at about 6.28 (a little above $\ln 512 \approx 6.24$) and stays there, because the smoke-test data is random; a second run prints `resumed from step 30`. Then add an `--overfit` flag that draws one batch and returns that same batch for every training and validation call, with 200 steps, `grad_accum=1` and z-loss off. Run `python train_gpt.py --tiny --overfit --out ckpt_overfit`. Done when the logged loss falls from about 6.28 at step 1 to below 0.5 by step 100 and below 0.05 by step 200 (a reference run logs 5.21 at step 10, 0.22 at step 100 and 0.017 at step 200, with the final `val_loss` matching the training loss). This is the "overfit one batch first" check as a permanent switch.
+2. **Compare the two schedules.** With `max_lr=6e-4`, `min_lr=6e-5`, `warmup=100`, `total=1000`, print `cosine_lr` and `wsd_lr` at steps 0, 99, 500, 900 and 999, then the mean learning rate over all 1000 steps. Expected:
+
+    | Step | Cosine | WSD |
+    |---|---|---|
+    | 0 | 6.00e-06 | 6.00e-06 |
+    | 99 | 6.00e-04 | 6.00e-04 |
+    | 500 | 3.77e-04 | 6.00e-04 |
+    | 900 | 7.63e-05 | 2.18e-04 |
+    | 999 | 6.00e-05 | 6.14e-05 |
+    | mean | 3.28e-04 | 4.99e-04 |
+
+    WSD spends about 1.5 times more total learning rate for the same peak, which is one reason its stable-phase loss looks worse and its final drop looks sharper than cosine's.
+
+??? success "Solution sketch"
+    Add the flag next to `--tiny`, then, just before `model = GPT(cfg).to(device)`:
+
+    ```python
+    if a.overfit:                                    # one fixed batch, reused forever
+        fixed = train.next_batch(device)
+        train.next_batch = val.next_batch = lambda device: fixed
+        a.steps, a.grad_accum, a.z_loss = 200, 1, 0.0
+        a.eval_every = a.ckpt_every = 10**9          # only evaluate and save at the end
+    ```
+
+    Placing it after the `--tiny` block matters, because `--tiny` sets `a.steps = 30`. Use a separate `--out` directory so the run does not resume from the earlier smoke-test checkpoint.
+
+    ```python
+    from schedules import cosine_lr, wsd_lr
+
+    kw = dict(max_lr=6e-4, min_lr=6e-5, warmup=100, total=1000)
+    for s in (0, 99, 500, 900, 999):
+        print(s, f"{cosine_lr(s, **kw):.2e}", f"{wsd_lr(s, **kw):.2e}")
+    for fn in (cosine_lr, wsd_lr):
+        print(fn.__name__, f"{sum(fn(s, **kw) for s in range(1000)) / 1000:.2e}")
+    ```
 
 ## Check your understanding
 
@@ -617,7 +658,7 @@ The default config is a ~124M-parameter model at 524K tokens per step. On a sing
 ??? question "What advantage does WSD have over cosine when you don't know how long you'll train?"
     Cosine needs the total step count to define the decay. WSD holds LR constant, so you can keep training from any stable-phase checkpoint and run a short decay only when you decide to stop, or branch several decay runs to compare.
 
-??? question "A 350M model processes 60,000 tokens/sec on an A100 (312 TFLOPs bf16 peak). Ignoring attention FLOPs, what's the MFU?"
+??? question "A 350M model processes 60,000 tokens/sec on an A100 (312 TFLOP/s bf16 peak). Ignoring attention FLOPs, what's the MFU?"
     $60{,}000 \times 6 \times 350\times10^6 = 1.26\times10^{14}$ FLOPs/sec. Divided by $3.12\times10^{14}$, that is about 40%: a reasonable, healthy number. If you ever compute something above ~70%, suspect your throughput measurement.
 
 ## Further reading

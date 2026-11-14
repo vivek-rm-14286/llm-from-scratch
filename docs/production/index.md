@@ -71,7 +71,7 @@ You have already met many of the building blocks. This section assumes them and 
 |---|---|
 | Benchmarks, custom eval sets, LLM-as-judge pitfalls | [Evaluation](../pretraining/evaluation.md) |
 | Preference data and DPO (used for harmlessness training) | [Preference Optimization](../post-training/preference.md) |
-| KV cache, batching, quantization, TTFT/TPOT | [Sampling, KV Cache & Quantization](../inference/inference.md) |
+| KV cache, batching, quantization, TTFT/TPOT | [Decoding: Sampling, KV Cache & Batching](../inference/inference.md), [Quantization & Serving](../inference/serving.md) |
 | Guard classifiers, routers, calibration, cost-aware thresholds | [Decision Models for Routing & Classification](../decision/routing-models.md) |
 | Retrieval pipelines (a major prompt-injection surface) | [RAG Fundamentals](../rag/fundamentals.md) |
 

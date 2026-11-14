@@ -358,6 +358,63 @@ ids = tok.apply_chat_template(messages, add_generation_prompt=True, return_tenso
     - Comparing per-token loss between models with different tokenizers. Use bits-per-byte instead.
     - Decoding token-by-token while streaming and printing each piece separately. A multi-byte character split across tokens will print as garbage; buffer bytes until they form valid UTF-8.
 
+## Build it
+
+Starting point: `bpe.py` from this page and the 1.1 MB tiny Shakespeare text:
+
+```bash
+curl -O https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt
+```
+
+1. **Train a 512-token vocabulary.** Run `tok.train(text, vocab_size=512)` on the whole file (about 7 seconds on a laptop). Done when:
+    - the first five merges are `b' t'`, `b'he'`, `b' a'`, `b'ou'`, `b' s'`;
+    - `tok.decode(tok.encode(s)) == s` and `tok.encode(tok.decode(ids)) == ids` hold for a set of test strings that includes non-ASCII text, an emoji, runs of whitespace, code, and the empty string;
+    - the first 100,000 characters encode to 51,511 tokens (1.94 bytes per token) and the largest id is 511.
+2. **Chat markers as special tokens.** Call `tok.add_special_tokens(["<|im_start|>", "<|im_end|>"])`. They must get ids 512 and 513. Encode
+
+    ```python
+    chat = "<|im_start|>user\nWhat news?<|im_end|>\n<|im_start|>assistant\nNone, my lord.<|im_end|>\n"
+    ```
+
+    Expected: 26 tokens, containing id 512 exactly twice and id 513 exactly twice. A tokenizer with the same merges but no registered special tokens needs 48 tokens for the same string, because each marker shatters into 6 or 7 pieces.
+3. **Save and reload.** Write `save(tok, path)` and `load(path)` using JSON. Done when the reloaded tokenizer returns identical ids for `chat` and for the first 5,000 characters of the text.
+
+??? success "Solution sketch"
+    ```python
+    import json
+    from bpe import ByteBPE
+
+    text = open("input.txt", encoding="utf-8").read()
+    tok = ByteBPE()
+    tok.train(text, vocab_size=512)
+    print([tok.vocab[i] for i in range(256, 261)])
+
+    tests = ["First Citizen:\nBefore we proceed any further, hear me speak.",
+             "naïve café 東京 🙂", "  leading spaces\tand\ttabs\n\n",
+             "x = [i**2 for i in range(10)]", ""]
+    for s in tests:
+        ids = tok.encode(s)
+        assert tok.decode(ids) == s and tok.encode(tok.decode(ids)) == ids
+
+    sample = text[:100_000]
+    ids = tok.encode(sample)
+    print(len(ids), round(len(sample.encode()) / len(ids), 2), max(ids))
+
+    def save(tok, path):
+        merges = [[a, b, i] for (a, b), i in tok.merges.items()]
+        json.dump({"merges": merges, "special": tok.special}, open(path, "w"))
+
+    def load(path):
+        d, t = json.load(open(path)), ByteBPE()
+        for a, b, i in sorted(d["merges"], key=lambda m: m[2]):   # training order
+            t.merges[(a, b)] = i
+            t.vocab[i] = t.vocab[a] + t.vocab[b]
+        t.add_special_tokens(list(d["special"]))
+        return t
+    ```
+
+    Only the merges and the special tokens need saving: the vocabulary is rebuilt from the merges in training order. JSON keys cannot be tuples, hence the list of triples.
+
 ## Check your understanding
 
 ??? question "Why does byte-level BPE never need an `<unk>` token?"

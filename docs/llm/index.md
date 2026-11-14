@@ -157,6 +157,11 @@ Read these in order. Each page builds on the code of the previous one.
 
 </div>
 
+Two more pages build on this section but are **electives**: they sit in the "Beyond the Core" module after Fine-tuning, and nothing on the way to the projects depends on them. Read them when you are curious, or skip them.
+
+- **[Architecture Families & Beyond Transformers](architecture-families.md)**: encoders (BERT), encoder-decoders (T5), state space models such as Mamba, linear attention, hybrids, and diffusion language models, and why decoder-only won.
+- **[Multimodal Models](multimodal.md)**: vision transformers, CLIP, projectors, and a toy vision-language model built on the GPT from this section. Its last part fine-tunes a real VLM, which assumes [SFT](../post-training/sft.md) and [LoRA](../finetuning/lora-qlora.md).
+
 !!! warning "Common pitfalls"
     - **Thinking "the model knows facts" is separate from next-token prediction.** It is not. Everything the model "knows" is encoded in how it shifts next-token probabilities.
     - **Comparing loss across tokenizers.** Per-token loss depends on the tokenizer: a tokenizer with bigger tokens has fewer, harder predictions. Compare bits-per-byte or downstream evals instead.

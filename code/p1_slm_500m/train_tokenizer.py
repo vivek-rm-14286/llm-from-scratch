@@ -21,7 +21,7 @@ SPECIAL_TOKENS = ["<|endoftext|>", "<|im_start|>", "<|im_end|>", "<|pad|>"]
 
 def fineweb_iterator(num_docs, dataset, name):
     from datasets import load_dataset  # imported lazily: only needed for this path
-    ds = load_dataset(dataset, name=name, split="train", streaming=True)
+    ds = load_dataset(dataset, name=name or None, split="train", streaming=True)
     for i, ex in enumerate(ds):
         if i >= num_docs:
             break

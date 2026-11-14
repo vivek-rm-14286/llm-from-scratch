@@ -111,6 +111,18 @@ The key distinction is **where the responses come from**:
 - SFT and DPO are *offline*. The responses are fixed in a dataset.
 - RL is *online / on-policy*. The model generates its own responses and learns from their scores. That's more expensive (generation is slow) but lets the model discover strategies nobody wrote down, which is exactly what happened with long chain-of-thought in R1-Zero.
 
+### Policy gradients in 150 words
+
+Stages 2 and 3 use reinforcement learning before the Decision Models track derives it, so here is the minimum. The model is a **policy** $\pi_\theta$: it samples a response $y$ token by token and then receives a scalar **reward** $r$. The **policy gradient** (REINFORCE) says how to raise the expected reward:
+
+$$
+\nabla_\theta J = \mathbb{E}_{y\sim\pi_\theta}\Big[\sum_t \nabla_\theta \log \pi_\theta(y_t \mid x, y_{<t})\,\hat{A}_t\Big]
+$$
+
+In code this is the SFT loss on the model's own samples, with each token's log-probability weighted by an **advantage** $\hat{A}_t$: the reward minus a **baseline** (what was expected anyway). A positive advantage makes those tokens more likely, a negative one less likely. The baseline comes from a learned value network (a **critic**; **GAE** is the standard way to turn its predictions into advantages) or, in GRPO, from the mean reward of several samples for the same prompt. **PPO** reuses each batch of samples for several gradient steps and clips the probability ratio $\pi_\theta / \pi_{\text{old}}$ to roughly $[0.8, 1.2]$ so the policy cannot move far from the one that generated the data.
+
+The derivations are in [DQN & PPO](../decision/policy-methods.md#policy-gradients): [REINFORCE](../decision/policy-methods.md#deriving-reinforce), [baselines and advantages](../decision/policy-methods.md#baselines-advantages-and-actor-critic), [GAE](../decision/policy-methods.md#generalized-advantage-estimation-gae) and [the clipped objective](../decision/policy-methods.md#the-clipped-surrogate-objective).
+
 ## Where distillation fits
 
 **Distillation** means training a smaller "student" model on outputs from a bigger "teacher". In post-training it's everywhere, often without being called that:
@@ -127,6 +139,8 @@ flowchart TD
     Q -- "yes, open weights,<br/>same tokenizer" --> L["Logit distillation (KL)<br/>or SFT on samples"]
     Q -- "no" --> R["Human data, self-play,<br/>RL with verifiers"]
 ```
+
+The [Distillation & Synthetic Data](distillation-synthetic-data.md) page covers all four, with the losses, a data-generation pipeline and the filtering that makes synthetic data usable.
 
 !!! warning "Check the license"
     Many API terms of service restrict using outputs to train competing models, and some open-weight licenses (e.g. Llama's) attach conditions to derived models. Dataset cards usually say which model generated the data. Read them before you ship.

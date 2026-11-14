@@ -1,13 +1,14 @@
 # Advanced RAG & Evaluation
 
-The 100-line RAG from the [previous page](fundamentals.md) works on a demo and then disappoints on real questions. Users type error codes that embeddings blur together, ask vague questions, ask about things spread across three documents, and occasionally someone plants "ignore previous instructions" in a wiki page. This page covers the techniques that close the gap between demo and production, and, more importantly, how to *measure* whether each one actually helps, because many "advanced RAG" tricks help on one corpus and hurt on another.
+The 100-line RAG from [RAG Fundamentals](fundamentals.md) works on a demo and then disappoints on real questions. Users type error codes that embeddings blur together, ask vague questions, ask about things spread across three documents, and occasionally someone plants "ignore previous instructions" in a wiki page. This page covers the techniques that close the gap between demo and production, and, more importantly, how to *measure* whether each one actually helps, because many "advanced RAG" tricks help on one corpus and hurt on another.
 
 !!! abstract "What you'll learn"
     - Hybrid search: BM25 + dense retrieval combined with reciprocal rank fusion
     - Cross-encoder rerankers and why they beat bi-encoders on precision
+    - Choosing an embedding model and fine-tuning it on your own (question, chunk) pairs
     - Query transformations: rewriting, multi-query, HyDE
     - Metadata filtering, parent-document retrieval and contextual retrieval
-    - Agentic RAG, tool use, and a brief look at GraphRAG
+    - Agentic RAG and a brief look at GraphRAG
     - Long context vs RAG: when each wins
     - Evaluation: recall@k, MRR, nDCG, faithfulness, answer relevance, golden sets, LLM-as-judge, RAGAS
     - Production concerns: freshness, permissions, caching, latency, cost and prompt injection
@@ -24,7 +25,7 @@ flowchart LR
     S --> RRF[Reciprocal rank fusion]
     D --> RRF
     RRF --> CE[Cross-encoder rerank]
-    CE --> PD[Expand to parent / neighbours]
+    CE --> PD[Expand to parent / neighbors]
     PD --> G[Generate with citations]
     G --> V[Validate: citations, schema, faithfulness]
 ```
@@ -33,7 +34,7 @@ Add these one at a time, and keep each only if your evaluation numbers improve.
 
 ## Hybrid search: BM25 + dense
 
-Dense embeddings capture meaning but are fuzzy on exact tokens. Ask about `ERR_4021` or `--max-retries` and an embedder may happily return a passage about `ERR_4012`. Classic keyword search gets exact matches right and paraphrases wrong. They fail on different queries, so combining them is one of the most reliable improvements you can make.
+Dense embeddings capture meaning but are fuzzy on exact tokens. Ask about `ERR_4021` or `--max-retries` and an embedder may happily return a passage about `ERR_4012`. Classic keyword search gets exact matches right and paraphrases wrong. They fail on different queries, so combining them is one of the most reliable improvements you can make. [Project 3](../projects/p3-rag.md#results-from-one-run) measures this on a corpus built to show it: dense retrieval finds 55% of the identifier questions and BM25 all of them, while BM25 finds 43% of the paraphrased questions and dense 71%.
 
 ### BM25 in one formula
 
@@ -57,7 +58,7 @@ $$
 \text{RRF}(d) = \sum_{r \in \text{retrievers}} \frac{1}{k + \text{rank}_r(d)}
 $$
 
-with $k = 60$ as the conventional constant. A document ranked 1st by BM25 and 3rd by dense gets $1/61 + 1/63$. A document only one retriever found still gets credit. RRF is robust, needs no tuning, and is hard to beat with fancier score normalization.
+with $k = 60$ as the conventional constant. A document ranked 1st by BM25 and 3rd by dense gets $1/61 + 1/63$. A document only one retriever found still gets credit. RRF is robust, needs no tuning, and is hard to beat with fancier score normalization. It is not magic, though: when one retriever is wrong for a query, its top results still take slots in the fused list, so at a small $k$ fusion alone can score below the better single retriever. Fuse a generous candidate list (20 to 100) and let a reranker pick the final few.
 
 ```python title="rrf.py"
 from collections import defaultdict
@@ -97,6 +98,93 @@ def rerank(query: str, candidates: list[dict], top_n: int = 5) -> list[dict]:
 
 Reranking with a small cross-encoder over 30 candidates typically adds tens of milliseconds on a GPU and more on CPU; measure it on your hardware. Hosted rerank APIs (Cohere, Voyage, Jina) and LLM-based rerankers are alternatives. Reranker scores are also a useful **abstain signal**: if the best reranked passage scores very low, say "I don't know" instead of generating.
 
+## Choosing and fine-tuning the embedding model
+
+Hybrid search and reranking work around the embedder's weaknesses. Sometimes it is better to fix the embedder.
+
+### What to compare when choosing
+
+- **Dimensions.** A float32 index costs $N \times d \times 4$ bytes: one million chunks take about 1.5 GB at 384 dimensions and about 4.1 GB at 1024, before any index overhead. More dimensions usually buy some quality, with diminishing returns. Models trained with Matryoshka representation learning let you keep only the first 256 or 512 dimensions of each vector at a small quality cost.
+- **Maximum input length.** `BAAI/bge-small-en-v1.5` reads 512 tokens; anything longer is cut off silently, so the end of a long chunk is simply not in the vector. Check `model.max_seq_length` and keep chunks under it. Long-context embedders (8k tokens and up) exist, but one vector for several pages still blurs details.
+- **Query and passage prefixes.** Many models were trained with different text on the two sides: BGE v1.5 puts an instruction in front of short queries, the E5 family uses `query: ` and `passage: `. Using the wrong prefix, or none, lowers recall without any error message. In sentence-transformers you can pass `prompt=` to `encode`, or store named prompts in the model.
+- **Language, license and speed.** A multilingual model for multilingual corpora; a license that fits your use; and embedding throughput on your hardware, since re-embedding the whole corpus is the cost of every model change.
+
+Leaderboards narrow the list to two or three candidates. The choice between them is made on your own golden set, with the same recall@k and MRR you use for everything else.
+
+### When fine-tuning pays off
+
+A general-purpose embedder has never seen your product's vocabulary. It does not know that `NM-4012` and `NM-4021` are different things, or that "the board" means a dashboard. Fine-tuning is worth trying when recall@k is still short after hybrid search and reranking, and you can collect at least a few hundred (better: thousands of) pairs of a question and the chunk that answers it. Sources of pairs, best first: resolved tickets linked to the doc that resolved them, search logs with clicks, and questions written by an LLM for sampled chunks (filter out the ones that copy the chunk's wording).
+
+### Contrastive training with hard negatives
+
+Training uses the same InfoNCE objective that produced the model in the first place (see [how embedding models are trained](fundamentals.md#how-embedding-models-are-trained-briefly)): pull each question toward its chunk, push it away from the other chunks in the batch. What makes fine-tuning effective is adding **hard negatives**: chunks the current model ranks near the top for a question although they are not relevant. They are exactly the confusions you want to remove. Mine them by running the current retriever over the training questions:
+
+```python title="finetune_embedder.py (excerpt)"
+def build_triplets(index: DenseIndex, train: list[dict], n_negatives: int, pool: int) -> list[dict]:
+    """One row per (question, positive chunk, hard negative). Hard negatives are the chunks the
+    CURRENT model ranks highest that are not labeled relevant and that the asker may see."""
+    rows = []
+    for g in train:
+        rel = set(g["relevant"])
+        candidates = index.search(g["question"], g["user_access"], pool)
+        positives = [c for c in index.chunks if is_relevant(c, rel)]
+        negatives = [c for c in candidates if not is_relevant(c, rel)][:n_negatives]
+        for pos in positives:
+            for neg in negatives:
+                rows.append({"anchor": settings.QUERY_INSTRUCTION + g["question"],  # same prefix as at query time
+                             "positive": pos["text"], "negative": neg["text"]})
+    return rows
+```
+
+The training loop is the sentence-transformers trainer (version 3.0 and later; the older `model.fit` API is deprecated). `MultipleNegativesRankingLoss` reads the dataset columns in order as anchor, positive, negative and uses every other positive and negative in the batch as additional negatives. (In sentence-transformers 6 the `losses` and `training_args` modules moved under `sentence_transformers.sentence_transformer`; the import paths below still work there with a deprecation warning, and the script tries the new location first.)
+
+```python title="finetune_embedder.py (excerpt)"
+from datasets import Dataset
+from sentence_transformers import (SentenceTransformer, SentenceTransformerTrainer,
+                                   SentenceTransformerTrainingArguments)
+from sentence_transformers.losses import MultipleNegativesRankingLoss
+from sentence_transformers.training_args import BatchSamplers
+
+model = SentenceTransformer("BAAI/bge-small-en-v1.5")
+dataset = Dataset.from_list(rows)                    # columns: anchor, positive, negative
+training_args = SentenceTransformerTrainingArguments(
+    output_dir="models/bge-small-nimbus-checkpoints",
+    num_train_epochs=3,
+    per_device_train_batch_size=16,
+    learning_rate=2e-5,
+    warmup_steps=int(0.1 * len(rows) / 16 * 3),      # 10% of the steps; the `warmup_ratio` argument is deprecated in transformers 5
+    batch_sampler=BatchSamplers.NO_DUPLICATES,       # a repeated positive in a batch would act as a false negative
+    save_strategy="no",
+    report_to="none",
+)
+trainer = SentenceTransformerTrainer(model=model, args=training_args, train_dataset=dataset,
+                                     loss=MultipleNegativesRankingLoss(model))
+trainer.train()
+model.save_pretrained("models/bge-small-nimbus")
+```
+
+The complete script, [`finetune_embedder.py`](https://github.com/vivek-rm-14286/llm-from-scratch/tree/main/code/p3_support_rag/finetune_embedder.py) in Project 3, adds the train/held-out split and the before/after measurement:
+
+```bash
+cd code/p3_support_rag
+python finetune_embedder.py                 # 3 epochs on CPU
+python finetune_embedder.py --max-steps 5   # smoke test
+```
+
+### Measure before and after, on questions the model did not train on
+
+The script splits the answerable golden questions in half, trains on one half and reports dense-only recall@5 and MRR on the other. Questions that share a relevant chunk are kept on the same side of the split; without that rule the model is tested on passages it was trained to retrieve, and the held-out number is inflated. Three runs with different splits, 3 epochs each on a laptop CPU (45 to 60 seconds of training, 126 to 138 triplets from 36 to 39 questions), with sentence-transformers 6.3:
+
+| Split seed | Held-out questions | recall@5 before | recall@5 after | MRR before | MRR after |
+|---|---|---|---|---|---|
+| 0 | 42 | 0.770 | 0.873 | 0.715 | 0.822 |
+| 1 | 41 | 0.768 | 0.854 | 0.691 | 0.797 |
+| 2 | 39 | 0.829 | 0.876 | 0.715 | 0.776 |
+
+Held-out recall improved in all three runs, by 5 to 10 points. Read that as "the method works and the script is correct", not as a promise: with about 40 held-out questions one question is worth 2.5 points, and the training and held-out questions were written by the same author over the same small corpus, which is friendlier than real traffic. On your data, hold out a few hundred real questions.
+
+Three things to do after any embedder change: **re-embed and re-index everything** (vectors from two models are not comparable), store the model name and version with the index, and re-run the full comparison of retrieval modes. A better embedder shrinks the gap that BM25 and the reranker were filling, and a cross-encoder that is weaker than the tuned embedder can now reorder a good list into a worse one.
+
 ## Query transformations
 
 Users write short, ambiguous, typo-ridden questions, often relying on chat history. Transforming the query before retrieval helps.
@@ -128,15 +216,15 @@ Many "retrieval failures" are really scoping failures: the right answer exists f
 - `updated_at` for "only recent" or recency boosting
 - `access_level` / `allowed_groups` for permissions (see below)
 
-Filters can come from the UI (a product dropdown), from the user's identity (permissions), or be extracted from the question by an LLM ("in version 3" becomes `version == 3`). As noted on the previous page, apply filters *inside* the vector search, not after it.
+Filters can come from the UI (a product dropdown), from the user's identity (permissions), or be extracted from the question by an LLM ("in version 3" becomes `version == 3`). As noted in [RAG Fundamentals](fundamentals.md#searching-vectors-exact-vs-approximate), apply filters *inside* the vector search, not after it.
 
 ## Parent-document and contextual retrieval
 
 There is a tension in chunk size: small chunks embed precisely, but the LLM needs surrounding context to answer.
 
-**Parent-document (small-to-big) retrieval** resolves it: index small chunks (for example single paragraphs) for matching, but store a pointer to the larger parent (the full section). At generation time, replace each hit with its parent, deduplicating parents that were hit more than once. A simpler variant is a **window**: return the hit plus its neighbouring chunks.
+**Parent-document (small-to-big) retrieval** resolves it: index small chunks (for example single paragraphs) for matching, but store a pointer to the larger parent (the full section). At generation time, replace each hit with its parent, deduplicating parents that were hit more than once. A simpler variant is a **window**: return the hit plus its neighboring chunks.
 
-**Contextual retrieval** attacks the same problem at index time. Before embedding each chunk, ask an LLM to write one or two sentences situating the chunk within its document ("This section of the Nimbus Monitor alerting guide explains how maintenance windows suppress notifications...") and prepend it to the chunk for both the dense embedding and BM25. Anthropic described this technique in 2024 and reported meaningful reductions in retrieval failures, especially combined with BM25 and reranking. It costs one LLM call per chunk at ingest time, which prompt caching makes affordable because the full document is the same prefix for all its chunks. The cheap version, prefixing the title and heading path, gets you part of the way for free.
+**Contextual retrieval** attacks the same problem at index time. Before embedding each chunk, ask an LLM to write one or two sentences situating the chunk within its document ("This section of the Nimbus Monitor alerting guide explains how maintenance windows suppress notifications...") and prepend it to the chunk for both the dense embedding and BM25. The technique (Anthropic, 2024) reduces retrieval failures, especially when combined with BM25 and reranking. It costs one LLM call per chunk at ingest time, which prompt caching makes affordable because the full document is the same prefix for all its chunks. The cheap version, prefixing the title and heading path, gets you part of the way for free.
 
 ## Agentic RAG and tool use
 
@@ -157,7 +245,7 @@ sequenceDiagram
     M-->>U: Answer citing doc [1], ticket [3], status page [5]
 ```
 
-With OpenAI-compatible APIs this is just function calling: define `search_docs(query, filters)` as a tool, execute the calls the model requests, append results as tool messages, and loop until the model produces a final answer (cap the iterations). It shines for multi-hop questions and multiple heterogeneous sources (docs, tickets, SQL, APIs). The costs are latency (several LLM round trips), unpredictability, and harder evaluation. Start with a fixed pipeline and add agency where evaluation shows multi-hop failures.
+With OpenAI-compatible APIs this is just function calling: define `search_docs(query, filters)` as a tool, execute the calls the model requests, append results as tool messages, and loop until the model produces a final answer (cap the iterations). It shines for multi-hop questions and multiple heterogeneous sources (docs, tickets, SQL, APIs). The costs are latency (several LLM round trips), unpredictability, and harder evaluation. Start with a fixed pipeline and add agency where evaluation shows multi-hop failures. The loop itself, tool schemas, stopping rules and failure modes are covered in [Agents & Tool Use](../applications/agents.md).
 
 ## GraphRAG, briefly
 
@@ -195,7 +283,7 @@ flowchart LR
 
 For each question you know which chunk or document IDs are relevant.
 
-- **Recall@k**: fraction of relevant items that appear in the top $k$. The most important retrieval metric for RAG, because the LLM can only use what's in the prompt. When each question has one relevant document, this is the "hit rate": did we find it at all?
+- **Recall@k**: fraction of relevant items that appear in the top $k$. The most important retrieval metric for RAG, because the LLM can only use what's in the prompt. When each question has one relevant document, this is the "hit rate": was it found at all?
 - **MRR (mean reciprocal rank)**: average of $1/\text{rank}$ of the *first* relevant result. Rewards putting the right answer near the top.
 - **nDCG@k**: handles graded relevance (highly relevant = 2, partially = 1) and discounts by position:
 
@@ -292,6 +380,7 @@ Return JSON: {"claims": [{"claim": "...", "supported": true|false}], "faithfulne
     - **Only synthetic eval questions.** LLM-written questions are cleaner and more lexically similar to the source than real users' questions, so they overstate quality.
     - **Trusting an uncalibrated judge.** Check LLM-judge agreement with your own labels on a sample.
     - **Stale indexes.** Without content hashes and deletions, deleted or outdated documents keep getting cited.
+    - **Fine-tuning an embedder and testing it on its training questions.** Split first, keep questions that share a source on the same side, and re-index before measuring.
     - **Reranking too few candidates.** If the right chunk isn't in the top 20 from first-stage retrieval, the reranker can't rescue it. Look at recall@50 before reranking.
 
 ## Check your understanding
@@ -299,7 +388,7 @@ Return JSON: {"claims": [{"claim": "...", "supported": true|false}], "faithfulne
 ??? question "Why use reciprocal rank fusion instead of adding BM25 and cosine scores?"
     The scores are on different, query-dependent scales (BM25 is unbounded and varies with term rarity; cosine is roughly -1 to 1), so a weighted sum needs per-corpus normalization and tuning. RRF uses only ranks, which are comparable across retrievers, and rewards documents ranked highly by either. It is robust with no tuning.
 
-??? question "Why is a cross-encoder more accurate than a bi-encoder, and why don't we use it for first-stage retrieval?"
+??? question "Why is a cross-encoder more accurate than a bi-encoder, and why is it not used for first-stage retrieval?"
     It processes query and passage together, so attention can compare every query token with every passage token (catching negation, entity mismatches, etc.). But scores can't be precomputed: it must run once per (query, passage) pair at query time, which is far too slow over millions of passages. So you retrieve cheaply with a bi-encoder/BM25, then rerank a small candidate set.
 
 ??? question "A user can see only 'public' documents. Why is it wrong to retrieve everything and then drop restricted results before generation? And why is dropping them after generation even worse?"
@@ -317,6 +406,9 @@ Return JSON: {"claims": [{"claim": "...", "supported": true|false}], "faithfulne
 - Cormack, Clarke and Büttcher, "Reciprocal Rank Fusion outperforms Condorcet and individual Rank Learning Methods" (SIGIR 2009).
 - Nogueira and Cho, [Passage Re-ranking with BERT](https://arxiv.org/abs/1901.04085) (2019).
 - Gao et al., [Precise Zero-Shot Dense Retrieval without Relevance Labels](https://arxiv.org/abs/2212.10496) (2022), the HyDE paper.
+- Henderson et al., [Efficient Natural Language Response Suggestion for Smart Reply](https://arxiv.org/abs/1705.00652) (2017), the in-batch negatives loss that `MultipleNegativesRankingLoss` implements.
+- Kusupati et al., [Matryoshka Representation Learning](https://arxiv.org/abs/2205.13147) (2022).
+- [Sentence-Transformers training overview](https://www.sbert.net/docs/sentence_transformer/training_overview.html).
 - Formal et al., [SPLADE: Sparse Lexical and Expansion Model for First Stage Ranking](https://arxiv.org/abs/2107.05720) (2021).
 - Edge et al., [From Local to Global: A Graph RAG Approach to Query-Focused Summarization](https://arxiv.org/abs/2404.16130) (2024).
 - Es et al., [RAGAS: Automated Evaluation of Retrieval Augmented Generation](https://arxiv.org/abs/2309.15217) (2023).

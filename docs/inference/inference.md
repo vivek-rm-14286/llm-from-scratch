@@ -1,15 +1,13 @@
-# Sampling, KV Cache & Quantization
+# Decoding: Sampling, KV Cache & Batching
 
-A language model gives you a probability distribution over the next token. Turning that into fast, good text is the job of inference: choosing tokens (sampling), not recomputing the past (KV cache), keeping the GPU busy (batching, paged attention, speculative decoding), and making the model small enough to fit and fast enough to afford (quantization, distillation, pruning). This page builds each piece in PyTorch, then maps it to the serving tools you'd use in practice.
+A language model gives you a probability distribution over the next token. Turning that into fast, good text is the job of decoding: choosing tokens (sampling), not recomputing the past (the KV cache), and keeping the GPU busy (batching, paged attention, speculative decoding). This page builds each piece in PyTorch. [Quantization & Serving](serving.md) then shrinks the model and puts it behind an API.
 
 !!! abstract "What you'll learn"
     - Autoregressive decoding, and sampling: greedy, temperature, top-k, top-p, min-p, repetition penalty
     - The KV cache, implemented in a small GPT, and its memory cost
     - Prefill vs decode, and why decode is memory-bound
-    - Static vs continuous batching, paged attention, speculative decoding
-    - Quantization (int8/int4, GPTQ, AWQ, GGUF, bitsandbytes) with memory math
-    - Distillation and pruning for small models
-    - Serving stacks, on-device runtimes, and latency/throughput metrics (TTFT, TPOT)
+    - Static vs continuous batching, and paged attention
+    - Speculative decoding, with a greedy implementation you can test
 
 ## Autoregressive decoding
 
@@ -268,7 +266,7 @@ $$
 2 \times 32 \times 8 \times 128 \times 2 = 131{,}072 \text{ bytes} = 128 \text{ KiB per token}
 $$
 
-At 8K context that's 1 GiB per sequence; a batch of 32 such sequences needs 32 GiB of cache, double the 16 GB of weights. Without GQA (32 KV heads), it would be 4x larger. This is why GQA, MQA and DeepSeek's MLA (multi-head latent attention) exist; see [Modern Architectures & SLM Design](../llm/modern-architectures.md). KV caches can also be quantized to fp8 or int8 in most serving stacks.
+At 8K context that's 1 GiB per sequence; a batch of 32 such sequences needs 32 GiB of cache, double the 16 GB of weights. Without GQA (32 KV heads), it would be 4x larger. This is why GQA, MQA and DeepSeek's MLA (multi-head latent attention) exist; see [Modern Architectures & SLM Design](../llm/modern-architectures.md). KV caches can also be quantized to fp8 or int8 in most serving stacks. The [cheat sheet](../cheatsheet.md#memory) has the formula next to the other memory rules.
 
 ## Prefill vs decode
 
@@ -285,13 +283,13 @@ Inference has two phases with opposite characteristics:
 
 The **arithmetic intensity** of an operation is FLOPs per byte moved. In decode with batch size $B$, each weight (2 bytes in bf16) is read once and used for $2B$ FLOPs (one multiply-add per sequence). Intensity is about $B$ FLOPs/byte.
 
-An H100 does roughly 989 TFLOPs (dense bf16) and has about 3.35 TB/s of HBM bandwidth: a ratio of around 300 FLOPs/byte. Below that intensity you're waiting on memory. At $B=1$, intensity is ~1, so the GPU's compute is >99% idle. The time per token is approximately:
+An H100 does roughly 989 TFLOP/s (dense bf16) and has about 3.35 TB/s of HBM bandwidth: a ratio of around 300 FLOPs/byte. Below that intensity you're waiting on memory. At $B=1$, intensity is ~1, so the GPU's compute is >99% idle. The time per token is approximately:
 
 $$
 t_{\text{token}} \approx \frac{\text{bytes of weights} + \text{bytes of KV cache read}}{\text{memory bandwidth}}
 $$
 
-For an 8B model in bf16 (16 GB) on 3.35 TB/s: about 5 ms per token, so at most ~200 tokens/sec for a single user. Two consequences drive everything below: **batching** is nearly free throughput until $B$ approaches a few hundred, and **quantization** speeds up decode almost proportionally to bytes saved.
+For an 8B model in bf16 (16 GB) on 3.35 TB/s: about 5 ms per token, so at most ~200 tokens/sec for a single user. Two consequences follow: **batching** is nearly free throughput until $B$ approaches a few hundred (the rest of this page), and **quantization** speeds up decode almost proportionally to bytes saved ([Quantization & Serving](serving.md#quantization)).
 
 ## Batching
 
@@ -301,7 +299,7 @@ Group requests and run them together until all finish. Problem: sequences finish
 
 ### Continuous (in-flight) batching
 
-Schedule at the **iteration** level: after every decode step, remove finished sequences and insert waiting ones (running their prefill, often in chunks mixed with others' decode steps). The batch stays full, throughput rises several-fold, and queueing latency drops. Every modern server (vLLM, SGLang, TGI, TensorRT-LLM) does this.
+Schedule at the **iteration** level: after every decode step, remove finished sequences and insert waiting ones (running their prefill, often in chunks mixed with others' decode steps). The batch stays full, throughput rises several-fold, and queueing latency drops. Every modern server (vLLM, SGLang, TGI, TensorRT-LLM) does this. With a plain `model.generate` call you get static batching, and you have to pad the prompts yourself: see [Batched generation and left-padding](serving.md#batched-generation-and-left-padding).
 
 ```mermaid
 flowchart LR
@@ -364,229 +362,62 @@ def speculative_greedy(target, draft, idx, max_new_tokens, k=4):
 
 Each loop iteration produces between 1 and $k+1$ tokens for one target forward. In vLLM you enable it with a speculative config (draft model, EAGLE heads, or n-gram); `transformers` supports it via `model.generate(..., assistant_model=draft)`.
 
-## Quantization
-
-Quantization stores weights (and sometimes activations and KV cache) in fewer bits. It's the biggest single lever for fitting a model on smaller hardware and for faster decode.
-
-### The basic idea
-
-Symmetric absmax int8 quantization of a weight row: pick a scale so the largest magnitude maps to 127.
-
-$$
-s = \frac{\max_i |w_i|}{127}, \qquad q_i = \operatorname{round}\!\left(\frac{w_i}{s}\right) \in [-127, 127], \qquad \hat w_i = s\,q_i
-$$
-
-One outlier makes $s$ large and crushes precision for everything else, so real schemes use **per-channel** or **per-group** scales (a scale per 32-128 weights). Group-wise int4 is the standard for weight-only quantization.
-
-```python title="quant_demo.py"
-import torch
-
-def quantize_groupwise(w: torch.Tensor, bits: int = 4, group: int = 128):
-    """Symmetric per-group quantization. w: (out, in) with in % group == 0."""
-    qmax = 2 ** (bits - 1) - 1                                # 7 for int4, 127 for int8
-    wg = w.reshape(w.size(0), -1, group)
-    scale = wg.abs().amax(dim=-1, keepdim=True).clamp(min=1e-8) / qmax
-    q = torch.clamp(torch.round(wg / scale), -qmax - 1, qmax).to(torch.int8)
-    return q, scale
-
-def dequantize(q, scale, shape):
-    return (q.float() * scale).reshape(shape)
-
-torch.manual_seed(0)
-w = torch.randn(4096, 4096) * 0.02
-x = torch.randn(8, 4096)
-for bits in (8, 4):
-    q, s = quantize_groupwise(w, bits)
-    w_hat = dequantize(q, s, w.shape)
-    rel = ((x @ w_hat.T - x @ w.T).norm() / (x @ w.T).norm()).item()
-    print(f"int{bits}: relative output error {rel:.4f}")
-```
-
-(Real int4 kernels pack two 4-bit values per byte and dequantize on the fly inside the matmul; this demo stores them in `int8` for clarity.)
-
-### Memory math
-
-$$
-\text{weight memory} \approx N_{\text{params}} \times \frac{\text{bits}}{8} \times (1 + \text{overhead})
-$$
-
-where overhead covers scales/zero-points (e.g. one fp16 scale per 128 int4 weights adds about 0.125 bits per weight). For weights alone:
-
-| Model | bf16 (16-bit) | int8 | int4 (~4.5 bits effective) |
-|---|---|---|---|
-| 1B | 2 GB | 1 GB | ~0.6 GB |
-| 8B | 16 GB | 8 GB | ~4.5 GB |
-| 70B | 140 GB | 70 GB | ~40 GB |
-
-Add the KV cache and roughly 10-20% for activations and runtime buffers. So an 8B model at int4 runs on a 8-12 GB consumer GPU or a 16 GB laptop; 70B at int4 needs about 48 GB.
-
-### Methods
-
-| Method | What it does | Typical use |
-|---|---|---|
-| **Round-to-nearest (RTN)** | Quantize each group directly, as above | Baseline; fine at int8, loses quality at int4 |
-| **LLM.int8()** (bitsandbytes) | int8 matmul, with outlier feature dimensions kept in fp16 | Load big models in less memory; slower than bf16 |
-| **NF4** (bitsandbytes) | 4-bit "normal float" levels matched to Gaussian-distributed weights; double quantization of scales | QLoRA fine-tuning; see [LoRA & QLoRA](../finetuning/lora-qlora.md) |
-| **GPTQ** | Quantize column by column, updating remaining weights to compensate for error using second-order (Hessian) info from calibration data | int4/int3 weight-only for GPU serving |
-| **AWQ** | Find the ~1% of salient weight channels (by activation magnitude) and scale them up before quantizing to protect them | int4 weight-only for GPU serving; fast kernels in vLLM |
-| **GGUF k-quants** (llama.cpp) | Block-wise quantization formats (Q8_0, Q6_K, Q5_K_M, Q4_K_M, ...) with super-block scales; optional importance matrix | CPU / Apple Silicon / consumer GPU local inference |
-| **FP8** (E4M3) | 8-bit floating point weights and activations, per-tensor or per-block scales | Hopper/Blackwell GPU serving; near-lossless, real speedups |
-
-Rules of thumb: int8 and fp8 are nearly lossless for most models; int4 with a good method (AWQ, GPTQ, Q4_K_M) loses a little, usually acceptable; below 4 bits, quality drops quickly, especially for small models. Smaller models are more sensitive to quantization than larger ones.
-
-```python title="load_quantized.py"
-# pip install transformers accelerate bitsandbytes
-import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
-
-name = "Qwen/Qwen2.5-1.5B-Instruct"
-bnb = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_quant_type="nf4",
-                         bnb_4bit_compute_dtype=torch.bfloat16, bnb_4bit_use_double_quant=True)
-model = AutoModelForCausalLM.from_pretrained(name, quantization_config=bnb, device_map="auto")
-tok = AutoTokenizer.from_pretrained(name)
-print(f"{model.get_memory_footprint() / 1e9:.2f} GB")
-
-msgs = [{"role": "user", "content": "Explain the KV cache in two sentences."}]
-inputs = tok.apply_chat_template(msgs, add_generation_prompt=True, return_tensors="pt",
-                                return_dict=True).to(model.device)   # explicit: v4 and v5 defaults differ
-out = model.generate(**inputs, max_new_tokens=100, do_sample=True, temperature=0.7, top_p=0.9)
-print(tok.decode(out[0, inputs["input_ids"].shape[1]:], skip_special_tokens=True))
-```
-
-For GGUF, llama.cpp ships the converter and quantizer:
-
-```bash
-# From a llama.cpp checkout (build with cmake first)
-python convert_hf_to_gguf.py ./my-hf-model --outfile model-f16.gguf --outtype f16
-./build/bin/llama-quantize model-f16.gguf model-Q4_K_M.gguf Q4_K_M
-./build/bin/llama-cli -m model-Q4_K_M.gguf -p "The KV cache is" -n 64
-```
-
-## Compressing into small models: distillation and pruning
-
-### Knowledge distillation
-
-Train a small **student** to match a large **teacher**. The teacher's full output distribution carries far more information per token than a one-hot label ("dark knowledge": which wrong answers are nearly right). The classic loss mixes the usual cross-entropy with a KL term at temperature $T$:
-
-$$
-\mathcal{L} = \alpha\, \mathrm{CE}(y, p_s) + (1-\alpha)\, T^2\, \mathrm{KL}\!\left(p_t^{(T)} \,\|\, p_s^{(T)}\right)
-$$
-
-```python title="distill_loss.py"
-import torch.nn.functional as F
-
-def distill_loss(student_logits, teacher_logits, targets, T=2.0, alpha=0.5):
-    V = student_logits.size(-1)
-    s, t = student_logits.view(-1, V).float(), teacher_logits.view(-1, V).float()
-    ce = F.cross_entropy(s, targets.view(-1))
-    kl = F.kl_div(F.log_softmax(s / T, -1), F.log_softmax(t / T, -1),
-                  log_target=True, reduction="batchmean") * T * T
-    return alpha * ce + (1 - alpha) * kl
-```
-
-Logit distillation requires the teacher and student to share a tokenizer. Gemma 2/3's smaller models and Llama 3.2 1B/3B used logit-level distillation from larger models during pretraining. The other form is **sequence-level** distillation: generate text (answers, reasoning traces) with the teacher and fine-tune the student on it. That's how DeepSeek-R1's distilled Qwen and Llama models were made, and it works across tokenizers.
-
-### Pruning
-
-Remove parts of the network that matter least.
-
-- **Unstructured** (individual weights, e.g. magnitude, SparseGPT, Wanda): high sparsity possible, but speedups need special sparse kernels. 2:4 semi-structured sparsity (2 of every 4 weights zero) is accelerated on NVIDIA Ampere and later.
-- **Structured** (whole layers, attention heads, MLP channels, embedding dims): the result is a smaller dense model, so it's fast everywhere. NVIDIA's Minitron work pruned width and depth from larger Llama/Mistral models, then recovered quality with distillation, at a fraction of the cost of training from scratch.
-
-The practical recipe for a strong SLM from a larger model: **prune structurally, then distill**, then quantize for deployment.
-
-## Serving stacks
-
-| Stack | Best for | Notes |
-|---|---|---|
-| **vLLM** | High-throughput GPU serving | PagedAttention, continuous batching, prefix caching, speculative decoding, AWQ/GPTQ/FP8, OpenAI-compatible API, tensor/pipeline parallel |
-| **SGLang** | High-throughput serving, structured / multi-call programs | RadixAttention prefix cache, fast constrained decoding, strong for agents and many-turn workloads |
-| **TGI** (Hugging Face) | HF-ecosystem deployments | Continuous batching, OpenAI-compatible Messages API; development has slowed and Hugging Face now points many users to vLLM/SGLang, so check its current status before adopting |
-| **TensorRT-LLM** | Maximum NVIDIA performance | Compiled engines, more setup |
-| **llama.cpp** | CPU, Apple Silicon, consumer GPUs, edge | GGUF, `llama-server` gives an OpenAI-compatible endpoint |
-| **Ollama** | Easiest local setup | Wraps llama.cpp with a model registry and simple CLI/API |
-
-```bash
-# vLLM: OpenAI-compatible server
-pip install vllm
-vllm serve Qwen/Qwen2.5-1.5B-Instruct --max-model-len 8192 --gpu-memory-utilization 0.9
-
-curl http://localhost:8000/v1/chat/completions -H "Content-Type: application/json" -d '{
-  "model": "Qwen/Qwen2.5-1.5B-Instruct",
-  "messages": [{"role": "user", "content": "What is paged attention?"}],
-  "temperature": 0.7, "max_tokens": 200}'
-
-# SGLang
-pip install "sglang[all]"
-python -m sglang.launch_server --model-path Qwen/Qwen2.5-1.5B-Instruct --port 30000
-
-# Ollama
-ollama run qwen2.5:1.5b
-```
-
-vLLM also has an offline Python API for batch jobs (evals, synthetic data):
-
-```python
-from vllm import LLM, SamplingParams
-
-llm = LLM(model="Qwen/Qwen2.5-1.5B-Instruct")
-params = SamplingParams(temperature=0.7, top_p=0.9, max_tokens=128)
-outs = llm.chat([[{"role": "user", "content": f"Give one fact about the number {i}."}] for i in range(100)], params)
-print(outs[0].outputs[0].text)
-```
-
-## On-device and edge
-
-- **MLX** (Apple): array framework for Apple Silicon using unified memory. `mlx-lm` loads and quantizes Hugging Face models: `pip install mlx-lm` then `mlx_lm.generate --model mlx-community/Qwen2.5-1.5B-Instruct-4bit --prompt "Hello"`. Also supports LoRA fine-tuning on a Mac.
-- **llama.cpp / GGUF**: runs on nearly anything (x86, ARM, Android, iOS, Raspberry Pi), with CPU SIMD, Metal, CUDA, Vulkan backends.
-- **ONNX Runtime**: export to ONNX (e.g. with Hugging Face Optimum) and run across CPUs, GPUs, NPUs and the browser (onnxruntime-web, also used by Transformers.js). The `onnxruntime-genai` package adds a generation loop with KV cache.
-- **ExecuTorch** (PyTorch): on-device runtime for mobile and embedded, with quantization and hardware delegates.
-
-On device the budget is a few GB of RAM and a few watts, so SLMs (0.5B-3B) at 4-bit are the norm. Memory bandwidth (roughly 50-400 GB/s on laptops and phones, versus TB/s on datacenter GPUs) sets decode speed: by the formula above, a 1.5B model at ~1 GB int4 on a 100 GB/s device peaks around 100 tokens/sec.
-
-## Latency and throughput metrics
-
-| Metric | Meaning | Dominated by |
-|---|---|---|
-| **TTFT** (time to first token) | Request arrival to first output token | Queueing + prefill (prompt length) |
-| **TPOT** / ITL (time per output token / inter-token latency) | Average gap between output tokens | Decode: model bytes, KV cache, batch size |
-| **E2E latency** | Total request time | $\text{TTFT} + \text{TPOT} \times (n_{\text{out}} - 1)$ |
-| **Throughput** | Output tokens/sec across all users (or requests/sec) | Batch size, memory available for KV cache |
-| **Goodput** | Throughput of requests meeting latency SLOs | The real business metric |
-
-Throughput and latency trade off: larger batches raise total tokens/sec but increase each user's TPOT and TTFT. Human reading speed is roughly 5-10 tokens/sec, so for chat a TPOT under ~50-100 ms feels fluent; TTFT under about a second feels responsive. Always report percentiles (p50, p99), not just means.
-
-```python title="measure_latency.py"
-# Measure TTFT and TPOT against any OpenAI-compatible server (vLLM, SGLang, llama-server, Ollama)
-# pip install openai
-import time
-from openai import OpenAI
-
-client = OpenAI(base_url="http://localhost:8000/v1", api_key="none")
-t0 = time.perf_counter()
-stream = client.chat.completions.create(
-    model="Qwen/Qwen2.5-1.5B-Instruct",
-    messages=[{"role": "user", "content": "Write a paragraph about rivers."}],
-    max_tokens=200, stream=True)
-times = []
-for chunk in stream:
-    if chunk.choices and chunk.choices[0].delta.content:
-        times.append(time.perf_counter())
-ttft = times[0] - t0
-tpot = (times[-1] - times[0]) / max(1, len(times) - 1)
-print(f"TTFT {ttft * 1000:.0f} ms, TPOT {tpot * 1000:.1f} ms, chunks {len(times)}")
-```
-
-(Streamed chunks are usually one token each but not always; for exact counts, use the server's own benchmark tools, such as `vllm bench serve`.)
+With decoding covered, [Quantization & Serving](serving.md) makes the model smaller, puts it behind an API, and measures it under load.
 
 !!! warning "Common pitfalls"
     - **Position bug with a KV cache.** Positions (learned or RoPE) must start at `cache.pos`, not 0, for decode steps. Output silently degrades otherwise.
     - **Advancing the cache pointer per layer** instead of once per forward pass.
     - **Comparing sampling outputs across libraries** without matching the order of penalty, temperature and truncation.
     - **Strong repetition penalty on code.** Code repeats identifiers legitimately.
-    - **Ignoring KV cache in memory planning.** `--max-model-len` and batch size determine whether a model "fits" in serving, not just weight size.
-    - **Quantizing a small model to 3 bits** and not evaluating it. Small models degrade fastest.
-    - **Measuring only mean latency** or only at batch size 1.
+    - **Greedy decoding for long open-ended text.** It loops. Use a little temperature with top-p or min-p.
+    - **Ignoring the KV cache in memory planning.** Context length and batch size decide whether a model "fits" in serving, not just the weight size.
+    - **Timing generation without separating prefill from decode.** A long prompt and a long answer stress different limits (compute vs memory bandwidth).
+
+## Build it
+
+Start from the three files on this page: `sampling.py`, `gpt_kvcache.py` and `speculative_greedy.py`, saved in one directory. All three tasks run on a laptop CPU in seconds.
+
+**1. Measure what the KV cache buys.** Build `GPT(d=256, h=4, n_layer=6, max_len=512)`, generate 400 tokens greedily from a 16-token prompt with `use_cache=False` and again with `use_cache=True`, and time both. Expected result: identical token ids, and the cached run several times faster (about 6x on a laptop CPU: roughly 0.5 s against 3 s). The gap widens as the sequence gets longer, because the uncached loop is quadratic.
+
+**2. Check top-p empirically.** Call `sample_next` 20,000 times on logits `log([0.5, 0.3, 0.15, 0.05])` with `top_p=0.9` and count how often each token is drawn. Expected result: the fourth token is never drawn, and the other three appear with frequencies close to 0.526, 0.316 and 0.158 (the kept probabilities renormalized by 0.95).
+
+**3. Count target forward passes in speculative decoding.** Add a counter to the `while` loop of `speculative_greedy`. Generate 20 tokens with `k=4`, once with the draft set to the target model itself and once with a different randomly initialized 2-layer draft. Expected result: 4 loop iterations when the draft always agrees (each target pass yields $k+1 = 5$ tokens), 20 iterations when it never agrees, and the same output as `target.generate(..., temperature=0.0)` both times.
+
+??? success "Solution sketch"
+    ```python title="build_it.py"
+    import time, torch
+    from gpt_kvcache import GPT
+    from sampling import sample_next
+    from speculative_greedy import speculative_greedy   # with `steps += 1` in the loop, returned alongside `out`
+
+    # 1. cached vs uncached
+    torch.manual_seed(0)
+    m = GPT(d=256, h=4, n_layer=6, max_len=512).eval()
+    p = torch.randint(0, 1000, (1, 16))
+    outs = []
+    for use in (False, True):
+        t = time.perf_counter()
+        outs.append(m.generate(p, 400, use_cache=use, temperature=0.0))
+        print(f"use_cache={use}: {time.perf_counter() - t:.2f} s")
+    assert torch.equal(*outs)
+
+    # 2. top-p frequencies
+    logits = torch.tensor([[0.5, 0.3, 0.15, 0.05]]).log()
+    draws = torch.cat([sample_next(logits, top_p=0.9) for _ in range(20000)]).flatten()
+    print(torch.bincount(draws, minlength=4) / 20000)     # ~[0.53, 0.31, 0.16, 0.00]
+
+    # 3. speculative decoding iterations
+    torch.manual_seed(0)
+    target, draft = GPT(n_layer=6).eval(), GPT(n_layer=2).eval()
+    p = torch.randint(0, 1000, (1, 8))
+    ref = target.generate(p, 20, temperature=0.0)
+    for d in (target, draft):
+        out, steps = speculative_greedy(target, d, p, 20, k=4)
+        assert torch.equal(out, ref)
+        print(steps)                                      # 4, then 20
+    ```
+
+    A random draft never matches the target, so every iteration falls back to the single token the target chose: correct output, no speedup, plus the wasted draft passes. Real speedups need a draft that agrees most of the time.
 
 ## Check your understanding
 
@@ -596,25 +427,21 @@ print(f"TTFT {ttft * 1000:.0f} ms, TPOT {tpot * 1000:.1f} ms, chunks {len(times)
 ??? question "Compute the KV cache size for a model with 28 layers, 4 KV heads, head dim 128, bf16, 32K context, batch 1."
     $2 \times 28 \times 4 \times 128 \times 2 = 57{,}344$ bytes/token. Times 32,768 tokens is about 1.88 GB (1.75 GiB).
 
-??? question "Why does int4 quantization speed up decode, even though the GPU computes in bf16 after dequantizing?"
-    Decode is memory-bandwidth bound: time is dominated by reading weights. int4 weights are about a quarter of the bytes of bf16, so reading them is up to ~4x faster; the dequantize arithmetic is cheap relative to the GPU's spare compute.
+??? question "Why is decode at batch size 1 memory-bound while prefill is compute-bound?"
+    Decode reads every weight to do one multiply-add per weight: about 1 FLOP per byte, far below the roughly 300 FLOPs per byte an H100 can sustain, so the GPU waits on memory. Prefill processes hundreds or thousands of positions per weight read, which pushes the intensity above that ratio and makes the arithmetic the limit.
 
 ??? question "Why does speculative decoding not change the output distribution?"
     The target model verifies every token. With the rejection-sampling acceptance rule (accept with probability min(1, p_target/p_draft), else resample from the normalized residual), the accepted tokens are distributed exactly as if sampled from the target alone. The draft only affects speed.
 
-??? question "Your service has great throughput but users complain responses take 4 seconds to start. Which metric and which knobs?"
-    TTFT. Causes: queueing behind a full batch, or long prefills. Knobs: cap batch size / max concurrent sequences, enable chunked prefill so prefills interleave with decode, enable prefix caching for shared system prompts, or add replicas.
+??? question "A static batch holds one 1,000-token generation and seven 20-token ones. What does continuous batching change?"
+    With static batching the seven short requests finish after 20 steps but their slots sit idle for 980 more, and queued requests wait for the whole batch. Continuous batching frees a slot (and its KV blocks) the step a sequence finishes and admits a waiting request into it, so the batch stays full and queueing time drops.
 
 ## Further reading
 
 - Holtzman et al., *The Curious Case of Neural Text Degeneration* (nucleus sampling) - [arXiv:1904.09751](https://arxiv.org/abs/1904.09751)
 - Nguyen et al., *Turning Up the Heat: Min-p Sampling for Creative and Coherent LLM Outputs* - [arXiv:2407.01082](https://arxiv.org/abs/2407.01082)
+- Pope et al., *Efficiently Scaling Transformer Inference* - [arXiv:2211.05102](https://arxiv.org/abs/2211.05102)
 - Kwon et al., *Efficient Memory Management for Large Language Model Serving with PagedAttention* - [arXiv:2309.06180](https://arxiv.org/abs/2309.06180)
 - Leviathan et al., *Fast Inference from Transformers via Speculative Decoding* - [arXiv:2211.17192](https://arxiv.org/abs/2211.17192); Chen et al., *Accelerating LLM Decoding with Speculative Sampling* - [arXiv:2302.01318](https://arxiv.org/abs/2302.01318)
-- Dettmers et al., *LLM.int8()* - [arXiv:2208.07339](https://arxiv.org/abs/2208.07339)
-- Frantar et al., *GPTQ* - [arXiv:2210.17323](https://arxiv.org/abs/2210.17323)
-- Lin et al., *AWQ: Activation-aware Weight Quantization* - [arXiv:2306.00978](https://arxiv.org/abs/2306.00978)
-- Hinton et al., *Distilling the Knowledge in a Neural Network* - [arXiv:1503.02531](https://arxiv.org/abs/1503.02531)
-- Muralidharan et al., *Compact Language Models via Pruning and Knowledge Distillation* (Minitron) - [arXiv:2407.14679](https://arxiv.org/abs/2407.14679)
-- Zheng et al., *SGLang: Efficient Execution of Structured Language Model Programs* - [arXiv:2312.07104](https://arxiv.org/abs/2312.07104)
-- Docs: [vLLM](https://docs.vllm.ai/), [SGLang](https://docs.sglang.ai/), [llama.cpp](https://github.com/ggml-org/llama.cpp), [Ollama](https://ollama.com/), [MLX LM](https://github.com/ml-explore/mlx-lm), [ONNX Runtime GenAI](https://github.com/microsoft/onnxruntime-genai)
+- Zheng et al., *SGLang: Efficient Execution of Structured Language Model Programs* (RadixAttention) - [arXiv:2312.07104](https://arxiv.org/abs/2312.07104)
+- Hugging Face `transformers` docs: [Generation strategies](https://huggingface.co/docs/transformers/generation_strategies)

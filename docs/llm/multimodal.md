@@ -12,6 +12,9 @@ A language model only sees token embeddings: vectors of size $d$ arranged in a s
     - Which open VLMs to study
     - A minimal, trainable toy VLM in PyTorch, and how to LoRA fine-tune a real one
 
+!!! info "Elective"
+    This page is not needed for any project. The from-scratch parts build only on [The Transformer, Line by Line](transformer.md); the training-stages and fine-tuning sections assume you know [SFT](../post-training/sft.md) and [LoRA](../finetuning/lora-qlora.md).
+
 ## Images as tokens: the Vision Transformer
 
 A ViT treats an image the way an LLM treats text. Cut a $224 \times 224$ image into non-overlapping $16 \times 16$ patches; that gives $14 \times 14 = 196$ patches. Flatten each patch ($16 \cdot 16 \cdot 3 = 768$ numbers) and multiply by a learned matrix to get a $d$-dimensional vector. Those vectors are the "tokens". Add learned position embeddings, optionally prepend a `[CLS]` token, and run a standard **bidirectional** transformer encoder (no causal mask: there is no natural left-to-right order in an image).
@@ -146,7 +149,7 @@ $$
 
 A CLIP ViT-L/14 at 336 px gives $24 \times 24 = 576$ tokens per image (the LLaVA-1.5 setup). A $1024 \times 1024$ document at $P = 14$ would be about 5,300 tokens: as long as a short story. Since attention cost grows with sequence length, VLMs work hard to cut this down:
 
-- **Pixel shuffle / token merging.** Concatenate each $r \times r$ block of neighbouring patch tokens into one token with $r^2 \times$ the channels, then project. With $r = 2$ that is 4x fewer tokens. Qwen2-VL and later merge $2 \times 2$ patches this way; SmolVLM uses a more aggressive shuffle to keep token counts small for a tiny LLM.
+- **Pixel shuffle / token merging.** Concatenate each $r \times r$ block of neighboring patch tokens into one token with $r^2 \times$ the channels, then project. With $r = 2$ that is 4x fewer tokens. Qwen2-VL and later merge $2 \times 2$ patches this way; SmolVLM uses a more aggressive shuffle to keep token counts small for a tiny LLM.
 - **Resamplers.** A fixed set of learned queries cross-attend to the patch features and output a fixed number of tokens (Flamingo's Perceiver resampler, BLIP-2's Q-Former).
 - **Pooling.** Average-pool the patch grid. Gemma 3 represents each image with a fixed budget of 256 tokens.
 - **Tiling / dynamic resolution.** For high-resolution inputs, split the image into crops at the encoder's native resolution, encode each, and add a downscaled global view. Qwen2-VL and Qwen2.5-VL instead process images at (near) native resolution with a variable number of tokens, so token count scales with image size.
@@ -205,7 +208,7 @@ Read the model cards and technical reports of these; each makes different, instr
 
 Time to wire it together. The `ToyVLM` below takes a small ViT and the `GPT` from [gpt.py](transformer.md), adds an MLP projector, and **prepends the projected image tokens to the text embeddings**. It reuses the GPT's own modules (`tok_emb`, `pos_emb`, `blocks`, `ln_f`, `lm_head`), so the GPT code is unchanged. The interface extends the GPT's: `forward(idx, images=None, targets=None)` returns logits for the **text positions only**, so targets line up with `idx` exactly as they do for a text-only GPT.
 
-The task is synthetic so it trains in under a minute on a CPU: each $32 \times 32$ image contains a coloured rectangle on the left or right, and the model must caption it ("red left", "blue right").
+The task is synthetic so it trains in under a minute on a CPU: each $32 \times 32$ image contains a colored rectangle on the left or right, and the model must caption it ("red left", "blue right").
 
 ```python title="toy_vlm.py"
 import torch
@@ -253,7 +256,7 @@ class ToyVLM(nn.Module):
         return idx
 
 
-# ---- synthetic data: a coloured rectangle on the left or right of a black 32x32 image ----
+# ---- synthetic data: a colored rectangle on the left or right of a black 32x32 image ----
 COLORS = {"red": (1, 0, 0), "green": (0, 1, 0), "blue": (0, 0, 1), "yellow": (1, 1, 0)}
 SIDES = ["left", "right"]
 chars = sorted(set("".join(COLORS) + "".join(SIDES) + " .>"))

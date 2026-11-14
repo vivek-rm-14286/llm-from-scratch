@@ -1,11 +1,15 @@
 # generate_data.py needs only the Python standard library (3.10+).
+# Install with: uv pip install -r requirements.txt
+# Tested with: trl 1.18, transformers 5.23, peft 0.21, torch 2.15 (Python 3.12). The SFTConfig/SFTTrainer
+# arguments were checked against these releases, and the HF inference backend was run on Apple Silicon;
+# the QLoRA training run itself needs a CUDA GPU.
 # Training / evaluation (CUDA GPU required for training):
-torch>=2.3
+torch>=2.5
 transformers>=4.56
 datasets>=2.20
 peft>=0.13
-trl>=0.20            # SFTConfig(max_length=..., completion_only_loss=...) API used in train_qlora.py
-bitsandbytes>=0.43   # 4-bit NF4 quantization (Linux + NVIDIA GPU)
+trl>=0.20            # TRL 1.x (API stable since 0.20): SFTConfig(max_length=..., completion_only_loss=...)
+bitsandbytes>=0.43; sys_platform == "linux"   # 4-bit NF4 quantization (Linux + NVIDIA GPU only)
 accelerate>=0.34
 pydantic>=2.6
 openai>=1.40         # client for vLLM / Ollama / hosted OpenAI-compatible endpoints

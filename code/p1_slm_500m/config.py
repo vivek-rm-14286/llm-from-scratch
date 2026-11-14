@@ -35,6 +35,10 @@ PRESETS = {
     # ~126M params. The "cheap path" that fits a single 24 GB GPU comfortably.
     "p125m": ModelConfig(d_model=768, n_layers=14, n_heads=12, n_kv_heads=4,
                          ffn_hidden=2048),
+    # 31,465,984 params with an 8,192-token vocab. The laptop warm-up (Part 0 of the
+    # project page): trains on TinyStories on Apple Silicon or a free Colab GPU.
+    "p30m": ModelConfig(vocab_size=8192, d_model=512, n_layers=8, n_heads=8, n_kv_heads=2,
+                        ffn_hidden=1792, max_seq_len=512),
     # A few hundred thousand params: runs on a laptop CPU/MPS in a minute.
     "tiny": ModelConfig(vocab_size=512, d_model=64, n_layers=2, n_heads=4,
                         n_kv_heads=2, ffn_hidden=172, max_seq_len=128),

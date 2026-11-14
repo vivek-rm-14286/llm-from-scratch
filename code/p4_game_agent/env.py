@@ -136,6 +136,8 @@ class OrbitalCourierEnv(gym.Env):
         truncated = (not terminated) and self.steps >= self.max_steps
         info = self._info()
         info["event"] = event
+        if event == "crash":  # picking up the last package and crashing on the same step is a crash
+            info["success"] = False
         if self.render_mode == "human":
             self.render()
         return self._obs(), float(reward), terminated, truncated, info

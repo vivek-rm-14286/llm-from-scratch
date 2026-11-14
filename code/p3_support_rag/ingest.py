@@ -93,6 +93,18 @@ def split_sections(markdown: str, title: str) -> list[tuple[str, str]]:
     return sections
 
 
+def section_id(doc_id: str, title: str, heading_path: str) -> str:
+    """Stable id for one section: "doc:alerting#maintenance-windows" (the heading as a markdown-style
+    slug). Text before the first heading is "#intro"; a ticket is a single section, so its id is the
+    ticket id. The golden set labels relevant sections with these ids."""
+    leaf = heading_path.split(" > ")[-1]
+    if doc_id.startswith("ticket:"):
+        return doc_id
+    if leaf == title:
+        return f"{doc_id}#intro"
+    return f"{doc_id}#" + re.sub(r"[^a-z0-9]+", "-", leaf.lower()).strip("-")
+
+
 def pack_paragraphs(text: str, max_chars: int, overlap: int) -> list[str]:
     paras = [p.strip() for p in re.split(r"\n\s*\n", text) if p.strip()]
     chunks, cur = [], ""
@@ -129,6 +141,7 @@ def chunk_document(doc: dict, max_chars: int = 1000, overlap: int = 150) -> list
             "doc_type": doc["doc_type"],
             "title": doc["title"],
             "section": heading,
+            "section_id": section_id(doc["doc_id"], doc["title"], heading),
             "url": doc["url"],
             "updated": doc["updated"],
             "access": doc["access"],

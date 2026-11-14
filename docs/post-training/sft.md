@@ -348,7 +348,7 @@ def chat(model, messages, encode, decode, im_start, im_end, nl,
 
 ## The same job with TRL
 
-For real models, use Hugging Face TRL. Its `SFTTrainer` handles chat templates, masking, packing, and LoRA. The API has moved a lot between versions; the code below targets **TRL ≥ 0.20** (`pip install "trl>=0.20" transformers datasets`), where `max_seq_length` was renamed `max_length` and `assistant_only_loss` exists.
+For real models, use Hugging Face TRL. Its `SFTTrainer` handles chat templates, masking, packing, and LoRA. The API moved a lot before 0.20 and has been stable since; the code below targets **TRL 1.x** with transformers 5.x (`pip install "trl>=1.0" transformers datasets`), where the length limit is `max_length` (formerly `max_seq_length`) and `assistant_only_loss` exists.
 
 ```python title="trl_sft.py"
 from datasets import load_dataset
@@ -371,7 +371,7 @@ config = SFTConfig(
     gradient_accumulation_steps=4,
     learning_rate=5e-5,
     lr_scheduler_type="cosine",
-    warmup_ratio=0.03,
+    warmup_steps=0.03,              # (4)!
     bf16=True,
     logging_steps=10,
     eval_strategy="steps",
@@ -394,9 +394,10 @@ trainer.save_model()
 1. Borrow the instruct tokenizer for its chat template, since the base tokenizer may not have one. The ChatML markers are already in SmolLM2's vocabulary.
 2. `packing=True` packs examples; recent TRL versions default to padding-free "BFD" packing with position-ID resets when the attention implementation supports it.
 3. `assistant_only_loss` needs a chat template that marks assistant spans with Jinja `{% generation %}` tags. If yours doesn't, TRL will error; fall back to the prompt/completion dataset format with `completion_only_loss=True`, or patch the template.
+4. A float below 1 is read as a fraction of the total steps (3% here). transformers 5.x removed the separate `warmup_ratio` argument; on transformers 4.x write `warmup_ratio=0.03` instead.
 
 !!! info "If your TRL version complains"
-    Older tutorials use `DataCollatorForCompletionOnlyLM`, `dataset_text_field`, `max_seq_length`, or `tokenizer=` in the trainer. Those were removed or renamed across the 0.1x → 0.2x releases. Check `pip show trl` and the [SFTTrainer docs](https://huggingface.co/docs/trl/sft_trainer) for your version.
+    Older tutorials use `DataCollatorForCompletionOnlyLM`, `max_seq_length`, `warmup_ratio`, or `tokenizer=` in the trainer. Those were removed or renamed across the TRL 0.1x → 0.2x and transformers 4.x → 5.x releases. Check `pip show trl` and the [SFTTrainer docs](https://huggingface.co/docs/trl/sft_trainer) for your version.
 
 ## Evaluating chat models
 
@@ -417,6 +418,55 @@ More on harnesses in [Evaluation](../pretraining/evaluation.md).
     - **Pad token = EOS token with no masking.** If you set `pad_token = eos_token` and then train on pads, the model learns to emit EOS constantly, or never (if you mask all EOS). Mask pads via labels, not via token identity.
     - **Learning rate from pretraining.** 3e-4 on a 7B model during SFT will wreck it.
     - **Too many epochs** on small data: lovely training loss, parroted answers.
+
+## Build it
+
+Starting point: `gpt.py` from [The Transformer, Line by Line](../llm/transformer.md) and `sft_data.py`, `sft_loss.py`, `train_sft.py`, `chat.py` from this page. A character-level tokenizer with three extra ids is enough:
+
+```python
+chars = sorted(set("abcdefghijklmnopqrstuvwxyz0123456789 +=?\n"))   # 41 characters
+stoi = {c: i for i, c in enumerate(chars)}
+IM_START, IM_END, PAD = 41, 42, 43                                  # vocab size 44
+encode = lambda s: [stoi[c] for c in s]
+decode = lambda ids: "".join(chars[i] for i in ids)
+nl = encode("\n")
+cfg = GPTConfig(vocab_size=44, block_size=64, n_layer=2, n_head=4, d_model=128, bias=False)
+```
+
+1. **Check the mask.** Render the two-turn conversation user `2+2=?`, assistant `4`, user `10+7=?`, assistant `17` with `render_chatml`. Done when it yields 56 token ids of which exactly 5 have a label other than `-100`, and those decode to `4`, `<|im_end|>`, `1`, `7`, `<|im_end|>`. Then compute `sft_loss` on an untrained `GPT(cfg)`: it should be near $\ln 44 \approx 3.78$ (3.79 in a reference run) and equal a hand-computed mean of the negative log-probabilities over only those 5 positions.
+2. **Teach a from-scratch model to answer.** Build the 100 conversations `a+b=?` → `a+b` for single digits, shuffle with `random.seed(0)`, and hold out 10. Train an untrained `GPT(cfg)` with `train_sft(..., pad_id=PAD, max_len=64, batch_size=16, grad_accum=1, epochs=150, lr=1e-3, device="cpu")`, which takes about 10 seconds. Done when `chat()` returns the right sum for all 90 training prompts (reference runs with three seeds also get all 10 held-out prompts) and `chat(model, [{"role": "user", "content": "3+4=?"}], ...)` returns exactly `'7'`: the loop ends because the model emits `<|im_end|>`, not because it reaches `max_new_tokens`.
+
+??? success "Solution sketch"
+    ```python
+    msgs = [{"role": "user", "content": "2+2=?"}, {"role": "assistant", "content": "4"},
+            {"role": "user", "content": "10+7=?"}, {"role": "assistant", "content": "17"}]
+    ids, labels = render_chatml(msgs, encode, IM_START, IM_END, nl)
+    print(len(ids), [l for l in labels if l != -100])        # 56, five ids
+
+    x, y = collate([(ids, labels)], PAD, 64)
+    model = GPT(cfg)
+    lp = F.log_softmax(model(x)[:, :-1], dim=-1)
+    t = y[:, 1:]
+    m = t != -100
+    hand = -(lp.gather(-1, t.clamp(min=0)[..., None])[..., 0] * m).sum() / m.sum()
+    print(sft_loss(model, x, y).item(), hand.item())         # equal
+
+    random.seed(0)
+    pairs = [(a, b) for a in range(10) for b in range(10)]
+    random.shuffle(pairs)
+    conv = lambda a, b: [{"role": "user", "content": f"{a}+{b}=?"},
+                         {"role": "assistant", "content": str(a + b)}]
+    model = GPT(cfg)
+    train_sft(model, (encode, IM_START, IM_END, nl), [conv(a, b) for a, b in pairs[:90]],
+              pad_id=PAD, max_len=64, batch_size=16, grad_accum=1, epochs=150, lr=1e-3,
+              device="cpu")
+    model.eval()
+    ask = lambda a, b: chat(model, conv(a, b)[:1], encode, decode, IM_START, IM_END, nl,
+                            max_new_tokens=8, device="cpu")
+    print(sum(ask(a, b) == str(a + b) for a, b in pairs[:90]), ask(3, 4))   # 90 7
+    ```
+
+    The learning rate is far above the SFT defaults in the table because this model starts from random weights, not from a pretrained checkpoint. To see the stop token matter, mask `<|im_end|>` out of the labels in `render_chatml` (`labels += body[:-1] + [IGNORE]`) and retrain: the model never stops, `3+4=?` comes back as `'71010000'` (cut off at `max_new_tokens=8`), and exact-match accuracy falls to 0 of 90.
 
 ## Check your understanding
 

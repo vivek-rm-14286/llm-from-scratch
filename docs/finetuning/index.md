@@ -62,7 +62,7 @@ Some heuristics that hold up:
 | | Full fine-tuning | LoRA | QLoRA |
 |---|---|---|---|
 | Trainable params | 100% | ~0.1-2% | ~0.1-2% |
-| GPU memory for an 8B model | ~130 GB+ (multi-GPU) | ~20-24 GB | ~10-16 GB |
+| GPU memory for an 8B model (including activations at 2k context; see the [breakdown](lora-qlora.md#memory-math-7b8b-on-a-24-gb-gpu)) | ~130 GB+ (multi-GPU) | ~20-24 GB | ~10-16 GB |
 | Output | full checkpoint (16 GB for 8B in bf16) | adapter (tens to hundreds of MB) | adapter |
 | Quality ceiling | highest | close to full FT for most tasks | close to LoRA |
 | Forgetting | most | less | less |
@@ -93,7 +93,7 @@ Data is where fine-tuning projects succeed or fail. Rough guidance for LoRA on a
 | Classification / extraction | ~1k to 10k examples (more for many classes) |
 | Narrow skill (SQL for your schema, domain QA style) | ~5k to 50k |
 | Distilling a broad capability from a bigger model | 50k+ |
-| New language or domain adaptation | continued pretraining on large unlabeled text, then SFT |
+| New language or domain adaptation | [continued pretraining](merging-continued-pretraining.md) on large unlabeled text, then SFT |
 
 What matters more than the count:
 
@@ -149,6 +149,8 @@ flowchart LR
 
 When a run underperforms, **look at the data before the hyperparameters.** Read the model's failures on the eval set and the training examples nearest to them. Nine times out of ten the fix is in the data.
 
+[Project 2](../projects/p2-finetune.md) follows this loop end to end: eval set and prompted baseline first, then a QLoRA run, then the regression checks. When the base model lacks the domain or language itself, or when several fine-tunes need combining into one model, see [Continued Pretraining & Model Merging](merging-continued-pretraining.md).
+
 !!! warning "Common pitfalls"
     - **Fine-tuning to add knowledge.** Use RAG for facts; fine-tune for behavior.
     - **No baseline.** Without a prompted baseline you can't tell whether fine-tuning helped.
@@ -178,5 +180,3 @@ When a run underperforms, **look at the data before the hyperparameters.** Read 
 - Zhou et al., *LIMA: Less Is More for Alignment* - [arXiv:2305.11206](https://arxiv.org/abs/2305.11206)
 - Hugging Face PEFT docs - [huggingface.co/docs/peft](https://huggingface.co/docs/peft)
 - Hugging Face TRL docs - [huggingface.co/docs/trl](https://huggingface.co/docs/trl)
-
-Ready to do it for real? [Project 2: Fine-tune an Open-Weight Model](../projects/p2-finetune.md) walks you through an end-to-end run.

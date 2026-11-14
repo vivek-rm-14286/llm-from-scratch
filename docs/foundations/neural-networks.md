@@ -607,6 +607,48 @@ Common variants: a final LR of about 10% of the peak, and **warmup-stable-decay 
     - **Adam instead of AdamW with weight decay.** `torch.optim.Adam(weight_decay=...)` is L2 regularization, not decoupled decay.
     - **No warmup with Adam at a high learning rate.** The first steps are the most unstable; warmup prevents early divergence.
 
+## Build it
+
+Starting points: `tiny_autograd.py`, `mlp_numpy.py` and `gradcheck.py` from this page.
+
+1. **A new op for the autograd engine.** Add a `sigmoid()` method to `Value` with its own `_backward` (local derivative $\sigma(x)(1-\sigma(x))$). Then run:
+
+    ```python
+    x, w = Value(0.5), Value(-2.0)
+    out = (w * x).sigmoid() * x + x.sigmoid()
+    out.backward()
+    print(round(out.data, 6), round(x.grad, 6), round(w.grad, 6))
+    ```
+
+    Expected output: `0.75693 0.307333 0.049153`. The same expression in PyTorch (`torch.sigmoid`, `requires_grad=True`) must print the same three numbers. Note that `x` is used three times, so this also tests gradient accumulation.
+2. **A third layer, by hand.** Write `MLP3` (2 → 64 → 64 → 3, ReLU after both hidden layers) with a hand-derived `backward`, and extend `grad_check` to all six parameters. Done when every relative error is below `1e-6` on `MLP3(2, 16, 3)` (the worst is around `1e-8`) and training on the spirals for 3000 steps at `lr = 1.0` reaches accuracy above 0.95 (a reference run ends at loss 0.013, accuracy 0.993).
+3. **Break it on purpose.** Delete the `(self.Z2 > 0)` mask from your `backward` and re-run the check: the worst relative error jumps to about 1. This is what a wrong backward pass looks like.
+
+??? success "Solution sketch"
+    ```python
+    def sigmoid(self):
+        s = 1.0 / (1.0 + math.exp(-self.data))
+        out = Value(s, (self,), "sigmoid")
+        def _backward():
+            self.grad += s * (1 - s) * out.grad
+        out._backward = _backward
+        return out
+    Value.sigmoid = sigmoid
+    ```
+
+    For `MLP3`, the forward pass stores `Z1, A1, Z2, A2, Z3`; initialize `W2` with He variance `2 / d_hidden`. The backward pass repeats the page's pattern once more:
+
+    ```python
+    def backward(self):
+        N = len(self.y)
+        G3 = self.P.copy(); G3[np.arange(N), self.y] -= 1; G3 /= N   # dL/dZ3
+        self.dW3 = self.A2.T @ G3; self.db3 = G3.sum(axis=0)
+        G2 = (G3 @ self.W3.T) * (self.Z2 > 0)                       # through ReLU 2
+        self.dW2 = self.A1.T @ G2; self.db2 = G2.sum(axis=0)
+        G1 = (G2 @ self.W2.T) * (self.Z1 > 0)                       # through ReLU 1
+        self.dW1 = self.X.T @ G1; self.db1 = G1.sum(axis=0)
+    ```
+
 ## Check your understanding
 
 ??? question "Why do two linear layers without an activation equal one linear layer?"

@@ -6,7 +6,7 @@ Ask a model trained in 2024 about a library released last month, your company's 
     - The three problems RAG solves: knowledge cutoff, hallucination, private data
     - Each stage of the pipeline and the design decision it hides
     - How embedding models are trained (contrastive loss) and why cosine similarity works
-    - How HNSW makes nearest-neighbour search fast, and what "approximate" costs you
+    - How HNSW makes nearest-neighbor search fast, and what "approximate" costs you
     - Chunking strategies and how to pick a chunk size
     - When to use FAISS, pgvector or Qdrant
     - A from-scratch RAG with numpy and any OpenAI-compatible LLM, with citations
@@ -19,7 +19,7 @@ An LLM's weights are a lossy compression of its training data. Three consequence
 2. **Hallucination.** The model is trained to produce *likely* text, not *true* text. For rare facts (a specific error code, a config flag) the likely-sounding answer is often wrong, and the model has no internal signal that says "I'm guessing."
 3. **Private data.** Your wiki, tickets and source code were never in the training set, and you probably don't want them baked into weights that anyone with model access can extract.
 
-You could fine-tune the facts in, but fine-tuning is a poor way to add knowledge: it is expensive to redo whenever a document changes, it does not give you citations, it cannot enforce "user A may see doc X but user B may not," and models fine-tuned on small fact sets still hallucinate around the edges. Fine-tuning is good at teaching *behaviour* (format, tone, a task). Retrieval is good at supplying *facts*. Most production systems use both: see [LoRA & QLoRA](../finetuning/lora-qlora.md) for the behaviour side.
+You could fine-tune the facts in, but fine-tuning is a poor way to add knowledge: it is expensive to redo whenever a document changes, it does not give you citations, it cannot enforce "user A may see doc X but user B may not," and models fine-tuned on small fact sets still hallucinate around the edges. Fine-tuning is good at teaching *behavior* (format, tone, a task). Retrieval is good at supplying *facts*. Most production systems use both: see [LoRA & QLoRA](../finetuning/lora-qlora.md) for the behavior side.
 
 | Need | Best tool |
 |---|---|
@@ -109,7 +109,7 @@ Many embedders also expect an instruction or prefix on the query side (for examp
 
 Given a query vector and $N$ stored vectors, exact search computes $N$ dot products and takes the top $k$. With numpy that is one matrix-vector product. At 100k chunks of 384 dims this takes a few milliseconds on a CPU and is *perfectly fine*. Do not reach for a vector database because you think you have to.
 
-At tens of millions of vectors, brute force gets slow and memory-hungry, so you use **approximate nearest neighbour (ANN)** indexes that trade a small amount of recall for orders-of-magnitude speedups.
+At tens of millions of vectors, brute force gets slow and memory-hungry, so you use **approximate nearest neighbor (ANN)** indexes that trade a small amount of recall for orders-of-magnitude speedups.
 
 ### HNSW in one picture
 
@@ -130,9 +130,9 @@ flowchart TD
     F2 -.-> F1 -.-> F0
 ```
 
-- Every vector is a node in the bottom layer, linked to roughly `M` of its nearest neighbours.
+- Every vector is a node in the bottom layer, linked to roughly `M` of its nearest neighbors.
 - Each node is also randomly promoted to higher layers with decreasing probability, so the top layers are sparse "highways."
-- **Search** starts at an entry point in the top layer, greedily walks to the neighbour closest to the query, drops down a layer when it can't improve, and repeats. At layer 0 it keeps a candidate list of size `ef` and returns the best `k`.
+- **Search** starts at an entry point in the top layer, greedily walks to the neighbor closest to the query, drops down a layer when it can't improve, and repeats. At layer 0 it keeps a candidate list of size `ef` and returns the best `k`.
 
 The knobs:
 
@@ -142,7 +142,7 @@ The knobs:
 | `ef_construction` | Higher = better graph, slower indexing |
 | `ef` / `hnsw_ef` (search) | Higher = better recall, slower queries. Tunable per query. |
 
-HNSW is "approximate" because greedy graph walks can miss the true nearest neighbour. Typical configurations get high recall against exact search, but you should verify on your data: compute exact top-k for a sample of queries and measure overlap. Other index families you will meet: **IVF** (cluster vectors, search only the nearest clusters) and **product quantization** (compress vectors to a few bytes each), often combined as IVF-PQ in FAISS for billion-scale data.
+HNSW is "approximate" because greedy graph walks can miss the true nearest neighbor. Typical configurations get high recall against exact search, but you should verify on your data: compute exact top-k for a sample of queries and measure overlap. Other index families you will meet: **IVF** (cluster vectors, search only the nearest clusters) and **product quantization** (compress vectors to a few bytes each), often combined as IVF-PQ in FAISS for billion-scale data.
 
 !!! note "Filtering and ANN"
     If you filter (for example "only docs this user can see") *after* ANN search, you might filter out all `k` results. Good vector databases apply filters *during* the graph traversal. This is a big reason to use Qdrant or pgvector with proper filter support rather than bolting filters on afterwards.
@@ -232,7 +232,7 @@ from sentence_transformers import SentenceTransformer
 
 EMBED_MODEL = "BAAI/bge-small-en-v1.5"
 QUERY_PREFIX = "Represent this sentence for searching relevant passages: "  # (1)!
-LLM_MODEL = os.getenv("LLM_MODEL", "qwen2.5:7b-instruct")
+LLM_MODEL = os.getenv("LLM_MODEL", "qwen2.5:7b")
 client = OpenAI(
     base_url=os.getenv("LLM_BASE_URL", "http://localhost:11434/v1"),
     api_key=os.getenv("LLM_API_KEY", "not-needed-for-local"),
@@ -316,7 +316,7 @@ if __name__ == "__main__":
 Run it against any folder of markdown, for example the sample corpus in [Project 3](../projects/p3-rag.md):
 
 ```bash
-ollama pull qwen2.5:7b-instruct
+ollama pull qwen2.5:7b
 python mini_rag.py code/p3_support_rag/sample_data/docs "How do I silence alerts during maintenance?"
 ```
 
@@ -372,6 +372,83 @@ def check_citations(answer: str, n_sources: int) -> dict:
     - **Chunks without context.** "Set it to 30" with no heading path is unretrievable and useless to the LLM.
     - **Reaching for a vector database too early.** Brute-force numpy is exact and fast at small scale. Add infrastructure when you need filtering, persistence, concurrency or scale.
     - **Stuffing too many chunks.** More context is not monotonically better; irrelevant passages distract the model and cost tokens.
+
+## Build it
+
+All three tasks run on a laptop CPU and need no LLM: they exercise embedding, chunking and search only. Start from `mini_rag.py` and `chunk_markdown.py` above, saved in the repository root, with `pip install sentence-transformers numpy openai`. The numbers below are for `BAAI/bge-small-en-v1.5` and the [Project 3](../projects/p3-rag.md) sample corpus as shipped (35 markdown files in `code/p3_support_rag/sample_data/docs`).
+
+**1. Cosine similarity by hand.** Embed these three sentences with `normalize_embeddings=True` and compute the dot products yourself with numpy:
+
+- a: "How do I silence alerts during planned maintenance?"
+- b: "Stop notifications while we upgrade the database."
+- c: "The Free plan keeps metrics for 7 days."
+
+Expected: every vector has norm 1.000, a·b is about 0.79 and a·c is about 0.51. Sentences a and b share almost no words and still land close together; that gap between 0.79 and 0.51 is all that dense retrieval has to work with.
+
+??? success "Solution sketch"
+    ```python
+    import numpy as np
+    from sentence_transformers import SentenceTransformer
+
+    model = SentenceTransformer("BAAI/bge-small-en-v1.5")
+    u = model.encode([a, b, c], normalize_embeddings=True)
+    print(np.linalg.norm(u, axis=1).round(3), round(float(u[0] @ u[1]), 3), round(float(u[0] @ u[2]), 3))
+    # [1. 1. 1.] 0.791 0.506
+    ```
+
+**2. Measure the 100-line retriever.** Index the sample docs with `MiniRAG.add_folder` and score its `search` against the project's golden set, `code/p3_support_rag/sample_data/golden.jsonl`. Use the questions with `"user_access": "public"` and a non-empty `relevant` list. Each `relevant` entry looks like `doc:alerting#maintenance-windows`; count a question as a hit when every document named there (`alerting`) is among the files of the top 5 results. Report the hit rate overall and per `type`.
+
+Expected: 101 chunks, 65 questions, hit rate@5 of 0.72 overall. By type: `keyword` 1.00, `identifier` 0.74, `paraphrase` 0.37. The retriever looks perfect if you only ask questions that reuse the documents' words.
+
+??? success "Solution sketch"
+    ```python
+    import json
+    import numpy as np
+    from mini_rag import MiniRAG
+
+    def hit_rate(rag, k=5):
+        golden = [json.loads(line) for line in open("code/p3_support_rag/sample_data/golden.jsonl")]
+        by_type = {}
+        for g in golden:
+            if g["user_access"] != "public" or not g["relevant"]:
+                continue
+            want = {r.split(":")[1].split("#")[0] for r in g["relevant"]}      # "doc:alerting#..." -> "alerting"
+            got = {rag.sources[i].split(".md")[0] for _, i in rag.search(g["question"], k)}
+            by_type.setdefault(g["type"], []).append(want <= got)
+        overall = np.mean([hit for hits in by_type.values() for hit in hits])
+        return round(float(overall), 2), {t: round(float(np.mean(h)), 2) for t, h in by_type.items()}
+
+    rag = MiniRAG()
+    rag.add_folder("code/p3_support_rag/sample_data/docs")
+    print(len(rag.texts), hit_rate(rag))
+    ```
+
+**3. Change only the chunker.** Subclass `MiniRAG` and override `add_folder` so that it drops the front matter (everything up to the second `---` line) and chunks with `chunk_markdown(text, title=path.stem)` instead of `chunk`. Re-run the measurement from task 2. Then search for "What does NM-4012 mean?" and find the rank of the chunk that defines NM-4012.
+
+Expected: 252 chunks and a hit rate@5 of 0.82 (`paraphrase` rises from 0.37 to 0.63, `identifier` from 0.74 to 0.84), with the same model and the same search code. The NM-4012 chunk is ranked 14th, with a score of 0.556 against 0.586 for the top hit, which is the section on NM-1011: to the embedder, one error code looks much like another. Better chunking fixed a lot; it did not fix exact identifiers. That is the job of keyword search, covered in [Advanced RAG & Evaluation](advanced.md#hybrid-search-bm25-dense).
+
+??? success "Solution sketch"
+    ```python
+    from pathlib import Path
+    from chunk_markdown import chunk_markdown
+
+    class HeadingRAG(MiniRAG):
+        def add_folder(self, folder):
+            for path in sorted(Path(folder).rglob("*.md")):
+                text = path.read_text(encoding="utf-8")
+                text = text.split("\n---\n", 1)[1] if text.startswith("---") else text
+                for i, c in enumerate(chunk_markdown(text, title=path.stem)):
+                    self.texts.append(c["text"])
+                    self.sources.append(f"{path.name}#chunk{i}")
+            self.vectors = self.model.encode(self.texts, normalize_embeddings=True).astype(np.float32)
+
+    rag = HeadingRAG()
+    rag.add_folder("code/p3_support_rag/sample_data/docs")
+    print(len(rag.texts), hit_rate(rag))
+    order = [i for _, i in rag.search("What does NM-4012 mean?", len(rag.texts))]
+    target = next(i for i, t in enumerate(rag.texts) if "NM-4012:" in t)
+    print(order.index(target) + 1)   # 14
+    ```
 
 ## Check your understanding
 

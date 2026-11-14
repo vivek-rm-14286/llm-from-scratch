@@ -11,6 +11,9 @@ confusion matrix, severity off-by-one rate, root-cause token F1, next-step recal
     # Fine-tuned: local HF model + adapter, then compare against the baseline report
     python evaluate.py --backend hf --model Qwen/Qwen2.5-7B-Instruct --adapter out/qwen7b-triage \
         --name finetuned --compare reports/baseline.json
+
+    # No model needed: replay the gold answers through the whole pipeline (every metric must be 1.000)
+    python evaluate.py --self-check
 """
 from __future__ import annotations
 
@@ -48,6 +51,17 @@ def step_recall(pred_steps: list[str], gold_steps: list[str], threshold: float =
         return 1.0
     hit = sum(any(token_f1(p, g) >= threshold for p in pred_steps) for g in gold_steps)
     return hit / len(gold_steps)
+
+
+class ReplayBackend:
+    """Answers each incident with its gold label. Used by --self-check to exercise
+    triage(), the schema, the business rules and the scoring without a model."""
+
+    def __init__(self, rows: list[dict]):
+        self.answers = {r["messages"][1]["content"]: r["messages"][2]["content"] for r in rows}
+
+    def generate(self, messages: list[dict], max_tokens: int = 512) -> str:
+        return self.answers[messages[-1]["content"]]
 
 
 def load_jsonl(path: str) -> list[dict]:
@@ -128,16 +142,20 @@ def main() -> None:
     ap.add_argument("--name", default="run")
     ap.add_argument("--reports", default="reports")
     ap.add_argument("--compare", default=None, help="path to another report JSON to diff against")
+    ap.add_argument("--self-check", action="store_true",
+                    help="no model: replay gold answers through the pipeline; every metric must be 1.0")
     add_backend_args(ap)
     args = ap.parse_args()
-    if args.backend == "hf" and not args.model:
+    if args.backend == "hf" and not args.model and not args.self_check:
         ap.error("--model is required with --backend hf")
+    if args.self_check:
+        args.name = "self_check"
 
     rows = load_jsonl(f"{args.data}/{args.split}.jsonl")
     if args.limit:
         rows = rows[: args.limit]
     few_shot = random.Random(0).sample(load_jsonl(f"{args.data}/train.jsonl"), args.few_shot) if args.few_shot else None
-    backend = make_backend(args)
+    backend = ReplayBackend(rows) if args.self_check else make_backend(args)
 
     records = []
     for i, row in enumerate(rows, start=1):
@@ -157,6 +175,11 @@ def main() -> None:
             f.write(json.dumps(r) + "\n")
     other = json.load(open(args.compare)) if args.compare else None
     print_report(args.name, metrics, other)
+    if args.self_check:
+        bad = [k for k, v in metrics.items() if k.startswith(("valid_", "acc_")) and v != 1.0]
+        bad += ["severity_under_triage_rate"] if metrics["severity_under_triage_rate"] != 0.0 else []
+        print("SELF-CHECK " + ("PASS" if not bad else f"FAIL: {bad}"))
+        raise SystemExit(1 if bad else 0)
 
 
 if __name__ == "__main__":

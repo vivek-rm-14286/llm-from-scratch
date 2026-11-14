@@ -1,0 +1,6 @@
+index/
+eval_report.json
+redteam_report.json
+models/
+__pycache__/
+.venv/

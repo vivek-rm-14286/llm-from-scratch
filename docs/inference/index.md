@@ -1,6 +1,6 @@
 # Inference & Deployment
 
-Training a model happens once. Running it happens millions of times. Inference is where most of the cost of a deployed language model goes, and it has a completely different performance profile from training: generation is sequential, memory-bandwidth bound, and latency-sensitive. A model that trained fine can still be too slow, too large, or too expensive to serve. This section covers how generation actually works and the techniques that make it fast and cheap: sampling, KV caching, batching, quantization, compression into small models, and the serving stacks that put it all together.
+Training a model happens once. Running it happens millions of times. Inference is where most of the cost of a deployed language model goes, and it has a completely different performance profile from training: generation is sequential, memory-bandwidth bound, and latency-sensitive. A model that trained fine can still be too slow, too large, or too expensive to serve. This section covers how generation actually works and the techniques that make it fast and cheap: sampling, KV caching, batching, quantization, compression into small models, and the serving stacks that put it all together. It has two pages: one on the decoding loop, one on shrinking and serving the model.
 
 !!! abstract "What you'll learn"
     - Why inference is a different engineering problem from training
@@ -17,7 +17,7 @@ Training a model happens once. Running it happens millions of times. Inference i
 | Metric | Tokens/sec, MFU | Time to first token, time per output token, throughput, cost per token |
 | Precision | bf16 (fp32 master weights) | bf16, int8, int4, fp8 |
 
-The key fact: to produce **one** token, the model must read **all** its weights from GPU memory. A 7B model in bf16 is 14 GB; at roughly 2 TB/s of memory bandwidth, that's a floor of about 7 ms per token for a single sequence, no matter how many FLOPs the GPU has. Almost every inference optimization either reads fewer bytes (quantization, smaller models), reads them less often (batching), or avoids recomputation (KV cache).
+The key fact: to produce **one** token, the model must read **all** its weights from GPU memory. A 7B model in bf16 is 14 GB; at an H100's roughly 3.35 TB/s of memory bandwidth, that's a floor of about 4 ms per token for a single sequence, no matter how many FLOPs the GPU has. Almost every inference optimization either reads fewer bytes (quantization, smaller models), reads them less often (batching), or avoids recomputation (KV cache).
 
 ## The landscape
 
@@ -54,20 +54,35 @@ Small language models (SLMs, roughly under 4B parameters) like SmolLM2/3, Qwen2.
 
 <div class="grid cards" markdown>
 
--   **[Sampling, KV Cache & Quantization](inference.md)**
+-   **[Decoding: Sampling, KV Cache & Batching](inference.md)**
 
     ---
 
-    Decoding and sampling strategies with code, the KV cache implemented in a small GPT, prefill vs decode, batching and paged attention, speculative decoding, quantization with memory math, distillation and pruning, serving stacks, on-device runtimes, and latency metrics.
+    Decoding and sampling strategies with code, the KV cache implemented in a small GPT, prefill vs decode, static and continuous batching, paged attention, and speculative decoding.
+
+-   **[Quantization & Serving](serving.md)**
+
+    ---
+
+    Quantization with memory math and a before/after quality check, distillation and pruning, one model served three ways (vLLM with LoRA adapters, llama.cpp with GGUF, Ollama), batched generation with left-padding, on-device runtimes, latency metrics, and a load-test script.
 
 </div>
 
-Related pages: [LoRA & QLoRA](../finetuning/lora-qlora.md) covers 4-bit quantization for fine-tuning; [Modern Architectures & SLM Design](../llm/modern-architectures.md) covers architecture choices (GQA, MQA) that shrink the KV cache; [RAG](../rag/index.md) covers serving models with retrieval.
+| Technique in the map above | Where it is covered |
+|---|---|
+| Sampling, KV cache, prefill vs decode | [Decoding](inference.md#the-kv-cache) |
+| Continuous batching, paged attention, speculative decoding | [Decoding](inference.md#batching) |
+| Quantization (int8, int4, GGUF, FP8) | [Quantization & Serving](serving.md#quantization) |
+| Distillation, pruning | [Quantization & Serving](serving.md#compressing-into-small-models-distillation-and-pruning), then [Distillation & Synthetic Data](../post-training/distillation-synthetic-data.md) |
+| Serving stacks, on-device runtimes | [Quantization & Serving](serving.md#serving-one-model-three-ways) |
+| TTFT, TPOT, load testing | [Quantization & Serving](serving.md#load-testing) |
+
+Related pages: [The Transformer, Line by Line](../llm/transformer.md#a-first-look-at-the-kv-cache) introduces the KV cache; [LoRA & QLoRA](../finetuning/lora-qlora.md) covers 4-bit quantization for fine-tuning; [Modern Architectures & SLM Design](../llm/modern-architectures.md) covers architecture choices (GQA, MQA) that shrink the KV cache; [RAG](../rag/index.md) covers serving models with retrieval.
 
 !!! warning "Common pitfalls"
     - **Benchmarking with batch size 1 and concluding a GPU is slow.** Decode at batch 1 uses a tiny fraction of available compute; throughput grows almost linearly with batch size until memory or compute limits.
     - **Forgetting the KV cache in memory planning.** At long contexts and large batches it can exceed the weights.
-    - **Quantizing without evaluating.** Always rerun your evals after quantization; some tasks (math, code) degrade more than others.
+    - **Quantizing without evaluating.** Always rerun your evals after quantization; some tasks (math, code) degrade more than others. See [Comparing quality before and after quantization](serving.md#comparing-quality-before-and-after-quantization).
     - **Mismatched chat templates** between training and serving. Silent quality loss.
 
 ## Check your understanding

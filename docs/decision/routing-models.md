@@ -109,7 +109,7 @@ trainer.train()
 
 Notes:
 
-- ModernBERT needs a recent `transformers` (4.48 or newer). `TrainingArguments` has changed over versions: `eval_strategy` replaced `evaluation_strategy`, and newer releases have reworked warmup options. Check the docs for the version you install.
+- This code is written for `transformers` v5 (ModernBERT itself needs 4.48 or newer). `TrainingArguments` has changed over versions: `eval_strategy` replaced `evaluation_strategy`, and v5 reworked the warmup options, so adjust the arguments if you are pinned to an older release.
 - Keep a separate **calibration split** (on top of train/val/test). You will fit a temperature on it.
 - For **multi-label** problems (a message can be both "billing" and "urgent"), set `problem_type="multi_label_classification"` and use one sigmoid per label.
 
@@ -140,7 +140,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 name = "Qwen/Qwen2.5-0.5B"
 tok = AutoTokenizer.from_pretrained(name)
-lm = AutoModelForCausalLM.from_pretrained(name).eval()
+lm = AutoModelForCausalLM.from_pretrained(name, dtype=torch.float32).eval()   # v5 would otherwise load the checkpoint's bf16
 LETTERS = "ABCDEFGH"
 
 @torch.inference_mode()
@@ -211,7 +211,7 @@ class DecisionLM(nn.Module):
     def __init__(self, name="Qwen/Qwen2.5-0.5B", dtype=torch.float32):
         super().__init__()
         self.tok = AutoTokenizer.from_pretrained(name)
-        # transformers < 4.56: use dtype= instead of dtype=
+        # older transformers 4.x releases: the argument is torch_dtype= instead of dtype=
         self.backbone = AutoModel.from_pretrained(name, dtype=dtype, attn_implementation="sdpa")
         d = self.backbone.config.hidden_size
         self.scorer = nn.Linear(d, 1)
@@ -260,7 +260,7 @@ class DecisionLM(nn.Module):
         return logits                                                          # (B, max_opts)
 ```
 
-The custom 4D attention mask is passed straight to the backbone. Recent `transformers` versions accept an additive float mask of shape `(batch, 1, q_len, kv_len)` for Llama/Qwen-family models with eager or SDPA attention. FlashAttention-2 does not support arbitrary masks. Check exactness in your environment. When we tested this class with Qwen2.5-0.5B, the scores for `options`, for `options[::-1]` (mapped back), and for each option run alone in its own separate sequence matched to four decimal places.
+The custom 4D attention mask is passed straight to the backbone. Recent `transformers` versions accept an additive float mask of shape `(batch, 1, q_len, kv_len)` for Llama/Qwen-family models with eager or SDPA attention. FlashAttention-2 does not support arbitrary masks. Check exactness in your environment. With Qwen2.5-0.5B on `transformers` v5, the logits for `options`, for `options[::-1]` (mapped back), and for each option run alone in its own separate sequence agree to within about 1e-4, which is floating-point noise.
 
 **Training** is ordinary cross-entropy over the options, with the option order shuffled anyway. Shuffling is harmless for Design C, it lets you swap in Design A or B later, and it protects you if you ever change the mask:
 
@@ -321,7 +321,7 @@ with torch.inference_mode():
     # decision LM: one prefill over context + all options
     t0 = time.perf_counter(); model([ctx], [TEAMS]); t_dec = time.perf_counter() - t0
     # generative baseline: ask for a short JSON answer
-    lm = AutoModelForCausalLM.from_pretrained("Qwen/Qwen2.5-0.5B")
+    lm = AutoModelForCausalLM.from_pretrained("Qwen/Qwen2.5-0.5B", dtype=torch.float32)   # same precision as the decision LM
     prompt = ctx + "\nTeams: " + ", ".join(TEAMS) + '\nAnswer as JSON {"team": ...}:'
     enc = model.tok(prompt, return_tensors="pt")
     t0 = time.perf_counter()
@@ -330,7 +330,7 @@ with torch.inference_mode():
 print(f"decision LM: {t_dec*1000:.0f} ms   generate 12 tokens: {t_gen*1000:.0f} ms")
 ```
 
-(Warm up both paths a few times before timing.) On a laptop CPU in fp32 we measured about 80 ms for the decision LM and about 1.1 s for 12 generated tokens: more than 10x. On a GPU both are much faster, but the ratio stays large, because decode steps are sequential and memory-bandwidth-bound while prefill is parallel. The decision LM also always returns a valid choice, and its probabilities can be calibrated. Parsed generations are not reliably either.
+(Warm up both paths a few times before timing.) On a laptop CPU in fp32 this takes about 80 ms for the decision LM and roughly 1 to 1.5 s for 12 generated tokens: more than 10x. On a GPU both are much faster, but the ratio stays large, because decode steps are sequential and memory-bandwidth-bound while prefill is parallel. The decision LM also always returns a valid choice, and its probabilities can be calibrated. Parsed generations are not reliably either.
 
 ## Approach selection at a glance
 
@@ -502,9 +502,9 @@ def pick_threshold(rows, min_quality):
 
 ## Structured and constrained outputs as a decision interface
 
-Sometimes a generative model has to make the decision, for example zero-shot with no training data, or as part of a larger response. Then **constrain the output space** so the decision is always valid and machine-readable:
+Sometimes a generative model has to make the decision, for example zero-shot with no training data, or as part of a larger response. Then **constrain the output space** so the decision is always valid and machine-readable. [Prompt & Context Engineering](../applications/prompting.md#structured-output) builds a constrained decoder from scratch. The options in practice:
 
-- **Enums in a JSON schema.** `{"team": {"enum": ["billing", "shipping", ...]}, "confidence": ...}`. Most serving stacks support schema- or grammar-constrained decoding (for example vLLM's guided decoding, llama.cpp grammars, and the Outlines and XGrammar libraries), and many hosted APIs offer structured-output modes. The decoder masks every token that would violate the schema.
+- **Enums in a JSON schema.** `{"team": {"enum": ["billing", "shipping", ...]}, "confidence": ...}`. Most serving stacks support schema- or grammar-constrained decoding (for example vLLM's structured outputs, llama.cpp grammars, and the Outlines and XGrammar libraries), and many hosted APIs offer structured-output modes. The decoder masks every token that would violate the schema.
 - **Logit masking for single-token labels.** That is Design A above. Restrict the next token to the label tokens and read the probabilities, rather than sampling text.
 - **Do not trust self-reported confidence.** A "confidence": 0.9 field written by the model is generated text, not a probability. Use token-level probabilities of the constrained choice, or better, a trained decision model, and calibrate it.
 

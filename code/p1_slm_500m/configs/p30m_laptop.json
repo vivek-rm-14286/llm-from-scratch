@@ -1,0 +1,20 @@
+{
+  "model": "p30m",
+  "data_dir": "data/tinystories",
+  "out_dir": "out/p30m",
+  "seq_len": 512,
+  "batch_size": 16,
+  "total_batch_tokens": 32768,
+  "lr": 0.0006,
+  "schedule": "wsd",
+  "warmup_steps": 200,
+  "decay_frac": 0.2,
+  "max_steps": 1526,
+  "log_every": 10,
+  "eval_every": 250,
+  "eval_batches": 20,
+  "sample_every": 500,
+  "sample_prompt": "Once upon a time",
+  "save_every": 250,
+  "keep_every": 0
+}

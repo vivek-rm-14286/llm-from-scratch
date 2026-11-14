@@ -1,7 +1,7 @@
 """Play Orbital Courier with the keyboard and record demonstrations.
 
 Arrow keys (or WASD) thrust; combine two keys for diagonals. No key = coast.
-++esc++ quits, R restarts the current episode without saving it.
+Esc quits, R restarts the current episode without saving it.
 Each finished episode is appended; the file is written when you quit.
 
 Usage:

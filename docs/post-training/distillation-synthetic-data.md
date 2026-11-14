@@ -9,10 +9,10 @@ Most strong small models are not trained alone. They learn from a bigger model, 
     - Sequence-level, on-policy and hidden-state distillation, and when to use each
     - Pruning + distillation (Minitron-style) and how SLMs are built from larger models
     - Synthetic data methods: Self-Instruct, Evol-Instruct, personas, textbook-style data, rejection sampling, LLM judges
-    - Deduplication, diversity metrics, model collapse, and licence/ToS issues
+    - Deduplication, diversity metrics, model collapse, and license/ToS issues
     - A complete generate-and-filter pipeline script with a dry-run mode
 
-This page goes deeper than the overview in [Where distillation fits](index.md#where-distillation-fits) and the short section in [Inference](../inference/inference.md#knowledge-distillation). Reasoning-trace distillation specifically is in [Reasoning & RL](reasoning-rl.md#distilling-reasoning-yourself).
+This page goes deeper than the overview in [Where distillation fits](index.md#where-distillation-fits) and the short section in [Quantization & Serving](../inference/serving.md#knowledge-distillation). Reasoning-trace distillation specifically is in [Reasoning & RL](reasoning-rl.md#distilling-reasoning-yourself).
 
 ## Knowledge distillation
 
@@ -85,7 +85,7 @@ forward KL (mean-seeking): mu=50.2 sigma=37.0
 reverse KL (mode-seeking): mu=25.0 sigma=5.0
 ```
 
-Forward KL puts the student's centre at 50, between the two modes, and makes it wide: it covers both modes but puts a lot of probability where the teacher puts almost none. Reverse KL locks onto one mode (the nearer one, given where it started) and matches it exactly.
+Forward KL puts the student's center at 50, between the two modes, and makes it wide: it covers both modes but puts a lot of probability where the teacher puts almost none. Reverse KL locks onto one mode (the nearer one, given where it started) and matches it exactly.
 
 For generation, putting mass where the teacher wouldn't means sampling text the teacher considers unlikely: hallucination-like, low-quality outputs. That's why reverse KL (or a mix, such as the generalized Jensen-Shannon divergence) is often preferred for distilling generative models, particularly with on-policy distillation below. Forward KL is the default for offline logit distillation, where it's simple and stable. In practice, with a decent student both work; the difference grows as the capacity gap grows.
 
@@ -263,7 +263,7 @@ off-policy: reverse KL on student's own samples = 0.736
 on-policy : reverse KL on student's own samples = 0.551
 ```
 
-The on-policy student is better judged by the teacher on the text it actually generates, which is the distribution that matters at inference time. The cost: you generate from the student every step (slow, like RL) and must run the teacher on those samples. A common recipe is off-policy first (cheap, gets the student in the right region), then a shorter on-policy phase. TRL ships a `GKDTrainer` that implements this, with a parameter mixing on- and off-policy data and a choice of divergence (its import path has moved between TRL releases, so check the docs for your version).
+The on-policy student is better judged by the teacher on the text it actually generates, which is the distribution that matters at inference time. The cost: you generate from the student every step (slow, like RL) and must run the teacher on those samples. A common recipe is off-policy first (cheap, gets the student in the right region), then a shorter on-policy phase. TRL ships a `GKDTrainer` (in TRL 1.x: `from trl.experimental.gkd import GKDTrainer`) that implements this, with a parameter mixing on- and off-policy data and a choice of divergence (its import path has moved between TRL releases, so check the docs for your version).
 
 ### Hidden-state (feature) distillation
 
@@ -426,7 +426,7 @@ For open-ended tasks with no verifier, use a model to grade. Ask a strong judge 
 - **Ask for JSON** (`{"score": 8, "reason": "..."}`) and drop anything unparsable.
 - **Temperature 0** for the judge, and a fixed rubric.
 - **Known biases**: judges prefer longer answers, answers in their own style (self-preference, so avoid judging a model's outputs with the same model if you can), and in pairwise mode, the first or second position. Swap positions and average for pairwise judging.
-- **Calibrate on a small human-labelled set.** Check that the judge's scores actually agree with yours before trusting them at scale.
+- **Calibrate on a small human-labeled set.** Check that the judge's scores actually agree with yours before trusting them at scale.
 
 ### Deduplication and diversity
 
@@ -451,13 +451,13 @@ If models are trained on model-generated data, and their outputs train the next 
 - **Inject diversity deliberately**: personas, seed topics from real documents, varied formats.
 - **Track diversity metrics** across iterations of any self-training loop.
 
-### Licence and terms of service
+### License and terms of service
 
 Teacher outputs come with strings attached:
 
 - Many commercial API **terms of service restrict using outputs to develop competing models**. Read the current terms of the provider you use; they change.
-- **Open-weight licences** vary. Some are permissive (Apache 2.0, MIT: for example many Qwen and DeepSeek releases). Others attach conditions to models trained on outputs; for example, the Llama 3.x licences have naming and attribution requirements for derived models. Check the specific licence version.
-- **Datasets inherit constraints.** A dataset's licence doesn't override the terms under which its content was generated. Dataset cards usually say which model generated the data.
+- **Open-weight licenses** vary. Some are permissive (Apache 2.0, MIT: for example many Qwen and DeepSeek releases). Others attach conditions to models trained on outputs; for example, the Llama 3.x licences have naming and attribution requirements for derived models. Check the specific licence version.
+- **Datasets inherit constraints.** A dataset's license doesn't override the terms under which its content was generated. Dataset cards usually say which model generated the data.
 - Record provenance in every row (generator model, judge model, date), as the pipeline below does, so you can filter later if a licence question comes up.
 
 This isn't legal advice; for anything commercial, ask someone who can give it.
@@ -496,7 +496,7 @@ PERSONAS = [
     "a nurse working night shifts", "a small bakery owner doing their own accounting",
     "a PhD student in linguistics", "a retired person learning to use a smartphone",
     "a data analyst preparing a quarterly report", "a game designer balancing an RPG economy",
-    "a hiking guide planning a multi-day trek", "a lawyer reviewing a software licence",
+    "a hiking guide planning a multi-day trek", "a lawyer reviewing a software license",
 ]
 BANNED = re.compile(r"\b(image|picture|photo|video|draw|diagram|audio|url|link)\b", re.I)  # text-only model
 

@@ -108,9 +108,11 @@ def main() -> int:
             print(f"error: {rel} is not listed in docs/curriculum.yml", file=sys.stderr)
             return 1
 
-    if OUT.exists():
-        shutil.rmtree(OUT)
-    (OUT / "pages").mkdir(parents=True)
+    final_out = OUT
+    tmp_out = OUT.with_name(OUT.name + ".tmp")
+    if tmp_out.exists():
+        shutil.rmtree(tmp_out)
+    (tmp_out / "pages").mkdir(parents=True)
 
     href_re = re.compile(r'href="([^"]*)"')
     errors = []
@@ -162,7 +164,7 @@ def main() -> int:
 
         headings = [{"id": hid, "level": int(lv), "text": text_of(txt)}
                     for lv, hid, txt in re.findall(r'<h([23]) id="([^"]+)"[^>]*>(.*?)</h\1>', body, re.S)]
-        (OUT / "pages" / f"{page_id(r)}.html").write_text(body)
+        (tmp_out / "pages" / f"{page_id(r)}.html").write_text(body)
 
         # reading time: prose at 200 wpm, code skimmed at twice that
         code_words = sum(len(text_of(c).split()) for c in re.findall(r"<pre.*?</pre>", body, re.S))
@@ -196,6 +198,7 @@ def main() -> int:
 
     if errors:
         print("\n".join(errors), file=sys.stderr)
+        shutil.rmtree(tmp_out, ignore_errors=True)
         return 1
 
     # "Used in": concept page → the project steps that apply it (docs/curriculum.yml: used_in)
@@ -213,11 +216,15 @@ def main() -> int:
         meta[routes[rel]]["usedIn"] = out
     if errors:
         print("\n".join(errors), file=sys.stderr)
+        shutil.rmtree(tmp_out, ignore_errors=True)
         return 1
 
     manifest = {"site": cur["site"], "tracks": tracks, "reference": reference, "order": order, "pages": meta}
-    (OUT / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=1))
-    (OUT / "search.json").write_text(json.dumps(search, ensure_ascii=False))
+    (tmp_out / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=1))
+    (tmp_out / "search.json").write_text(json.dumps(search, ensure_ascii=False))
+    if final_out.exists():
+        shutil.rmtree(final_out)
+    tmp_out.rename(final_out)
     print(f"built {len(routes)} pages, {len(search)} search records → {OUT.relative_to(ROOT)}")
     return 0
 

@@ -12,7 +12,52 @@ It is 03:12 and your pager fires. Twelve alerts, three of them noise, a wall of 
     - Merging adapters, serving with vLLM's OpenAI-compatible API, exporting GGUF for llama.cpp / Ollama
     - Guardrails: pydantic schema validation, business rules, retries with error feedback
 
-**Full code:** [code/p2_incident_triage](https://github.com/vivek-rm-14286/llm-from-scratch/tree/main/code/p2_incident_triage). Background reading: [Supervised Fine-Tuning](../post-training/sft.md) and [LoRA & QLoRA](../finetuning/lora-qlora.md).
+**Full code:** [code/p2_incident_triage](https://github.com/vivek-rm-14286/llm-from-scratch/tree/main/code/p2_incident_triage). Background reading: [Supervised Fine-Tuning](../post-training/sft.md) and [LoRA & QLoRA](../finetuning/lora-qlora.md). Two sections that the roadmap schedules later are used here, and can be read on their own: [Structured output](../applications/prompting.md#structured-output) (JSON-schema-constrained decoding) and [Deployment patterns](../production/llmops.md#deployment-patterns) (shadow mode).
+
+!!! info "Two ways to do this project"
+    **Run and modify.** Clone the repository, run each step below, then change the data generator, the prompt or the LoRA settings and measure the effect with `evaluate.py`. This is the faster route and the one the [roadmap](../start/roadmap.md) assumes.
+
+    **Rebuild.** Write each file yourself from the walkthrough and compare it with the supplied one. Keep the supplied `prompts.py` and `generate_data.py` (they define the task), and rebuild `schema.py`, `inference.py`, `evaluate.py` and `train_qlora.py`. The check that exists: `python evaluate.py --self-check` replays the gold answers through your `triage()` function, schema, business rules and scoring, and must print `SELF-CHECK PASS` with every accuracy at 1.000. There is no automated check for `train_qlora.py`. Compare its trainable-parameter printout and its first evaluation loss with the supplied script's.
+
+## 0. Setup
+
+```bash
+git clone https://github.com/vivek-rm-14286/llm-from-scratch
+cd llm-from-scratch/code/p2_incident_triage
+uv venv && source .venv/bin/activate      # or python -m venv .venv
+uv pip install -r requirements.txt        # bitsandbytes is installed on Linux only
+```
+
+**One-minute smoke test.** No GPU and no model download:
+
+```bash
+python generate_data.py --out data --n-per-template 120 --seed 7   # writes 1,414 train / 146 val / 840 test rows
+python evaluate.py --self-check                                    # gold answers through the whole pipeline
+```
+
+The second command must end with `SELF-CHECK PASS`. It proves that the data, the pydantic schema, the business rules, the retry loop and the scoring agree with each other before any model is involved. Both commands finish in about a second.
+
+**Hardware tiers.** Pick one row and use its model everywhere below.
+
+| Tier | Base model | Prompted baseline | QLoRA training |
+|---|---|---|---|
+| One 24 GB NVIDIA GPU (RTX 3090/4090, A10G, L4), local or rented | `Qwen/Qwen2.5-7B-Instruct` | vLLM | yes |
+| 16 GB NVIDIA GPU or a free Colab T4 | `Qwen/Qwen2.5-1.5B-Instruct` | local HF backend | yes, with `--fp16 --batch-size 2` |
+| Apple Silicon Mac | 7B through Ollama, or 1.5B through the local HF backend | yes | no: 4-bit `bitsandbytes` training needs CUDA. Train on Colab or a rented GPU, then serve the result on the Mac as GGUF |
+
+A rented 24 GB GPU costs roughly USD 0.30-0.80 per hour (see [Setup, Hardware & Budget](../start/setup.md#rough-price-ranges)), so the whole project is a few USD of GPU time.
+
+**Expected wall-clock per step.** Only the first two rows and the Mac baseline rate are measurements. The rest are estimates that depend heavily on the GPU.
+
+| Step | Time |
+|---|---|
+| Generate data, self-check | about a second each |
+| Prompted baseline, 200 test incidents, 7B on vLLM (24 GB GPU) | estimate: a few minutes |
+| Prompted baseline on a Mac with the local HF backend | about 5 s per incident with the 0.5B model on an M1 Pro; larger models are slower, so start with `--limit 50` |
+| QLoRA training, 7B, 2 epochs of 1,414 examples | estimate: an hour or less on a modern 24 GB card |
+| QLoRA training, 1.5B on a T4 | estimate: under an hour |
+| Evaluate the adapter with the HF backend, 200 incidents | estimate: 10-20 minutes |
+| Merge, GGUF export, re-evaluation | estimate: 30-60 minutes, mostly downloads and conversion |
 
 ## 1. Problem framing
 
@@ -91,18 +136,44 @@ flowchart LR
 
 ## 2. Baseline first: prompting
 
-Before touching a GPU, measure what prompting alone gets you. The baseline is the same system prompt plus `k` few-shot examples from the training set, served from the base model:
+Before training anything, measure what prompting alone gets you. The baseline is the same system prompt plus `k` few-shot examples from the training set, served from the base model. `evaluate.py` talks to any OpenAI-compatible endpoint (the default backend), or loads the model itself with `--backend hf`:
 
-```bash
-vllm serve Qwen/Qwen2.5-7B-Instruct --max-model-len 8192
-LLM_BASE_URL=http://localhost:8000/v1 python evaluate.py \
-    --model Qwen/Qwen2.5-7B-Instruct --few-shot 3 --name baseline --limit 200
-```
+=== "24 GB GPU: vLLM"
+
+    ```bash
+    vllm serve Qwen/Qwen2.5-7B-Instruct --max-model-len 8192
+    LLM_BASE_URL=http://localhost:8000/v1 python evaluate.py \
+        --model Qwen/Qwen2.5-7B-Instruct --few-shot 3 --name baseline --limit 200
+    ```
+
+=== "Mac: Ollama"
+
+    ```bash
+    ollama pull qwen2.5:7b            # 4-bit GGUF, about 5 GB; use qwen2.5:1.5b on an 8 GB Mac
+    LLM_BASE_URL=http://localhost:11434/v1 python evaluate.py \
+        --model qwen2.5:7b --few-shot 3 --name baseline --limit 200
+    ```
+
+    Ollama serves a 4-bit quantized build, so this baseline is slightly different from the bf16 model that vLLM serves. Compare like with like: if the fine-tuned model will be served as GGUF, this is the fairer baseline anyway.
+
+=== "Mac or Colab T4: local HF backend"
+
+    ```bash
+    # Mac (MPS): no bitsandbytes, so load in bf16 with --no-4bit
+    python evaluate.py --backend hf --no-4bit --model Qwen/Qwen2.5-1.5B-Instruct \
+        --few-shot 3 --name baseline --limit 50
+
+    # Colab T4: 4-bit loading works, so drop --no-4bit
+    python evaluate.py --backend hf --model Qwen/Qwen2.5-1.5B-Instruct \
+        --few-shot 3 --name baseline --limit 200
+    ```
+
+    No server is needed. The HF backend does not support `--structured` (constrained decoding); use Ollama or vLLM for that comparison.
 
 This gives you the bar to beat and, just as importantly, a **failure analysis**. Read twenty baseline predictions. Typical failure modes you will see with prompted models: markdown fences or prose around the JSON, severity that ignores the tier matrix, `affected_service` set to the symptomatic service instead of the root cause, and noise alerts treated as signal. Each failure mode should be represented in your training data.
 
 !!! tip "Also try constrained decoding"
-    vLLM and Ollama support JSON-schema-constrained generation. Run the baseline with `--structured` to see how much of the gap is pure formatting. If constrained decoding plus a good prompt meets your targets, you may not need to fine-tune at all.
+    vLLM and Ollama support JSON-schema-constrained generation (how it works: [Structured output](../applications/prompting.md#structured-output)). Run the baseline with `--structured` to see how much of the gap is pure formatting. If constrained decoding plus a good prompt meets your targets, you may not need to fine-tune at all.
 
 ## 3. Data strategy: synthetic + real
 
@@ -239,7 +310,7 @@ cfg = SFTConfig(
     gradient_accumulation_steps=4,          # effective batch 16
     learning_rate=2e-4,                     # (3)!
     lr_scheduler_type="cosine",
-    warmup_ratio=0.03,
+    warmup_steps=0.03,                      # a fraction of total steps; see the version note below
     bf16=True,
     gradient_checkpointing=True,
     max_length=2048,
@@ -258,19 +329,21 @@ trainer.save_model(args.out)   # (4)!
 1. Splitting each conversation into `prompt` (system + user) and `completion` (assistant) lets TRL apply the chat template and compute loss **only on the JSON answer**. Training on the long alert text would waste capacity learning to predict logs.
 2. Adapting all attention and MLP projections tends to work better than attention-only LoRA for a new task, at a modest memory cost.
 3. LoRA tolerates much higher learning rates than full fine-tuning. 1e-4 to 2e-4 is a common starting range.
-4. This saves only the adapter (tens of MB), not a copy of the 7B model.
+4. This saves only the adapter (roughly 160 MB at rank 16 on all seven projection types), not a copy of the 7B model.
 
 !!! warning "TRL API versions"
-    TRL's SFT API has changed several times (`max_seq_length` became `max_length`, `tokenizer` became `processing_class`, completion-only loss moved from a data collator into `SFTConfig`). The script targets TRL 0.20 or newer, as pinned in `requirements.txt`. If you hit an unexpected-keyword error, check your installed version first.
+    TRL's SFT API has changed several times (`max_seq_length` became `max_length`, `tokenizer` became `processing_class`, completion-only loss moved from a data collator into `SFTConfig`). The script targets TRL 1.x (API stable since 0.20), as required by `requirements.txt`. One argument moved underneath TRL as well: `transformers` 5 removed `warmup_ratio`, and a `warmup_steps` value below 1 is now read as a ratio. The excerpt above shows the `transformers` 5 form, `warmup_steps=0.03`. The script checks which of the two the installed version has, and falls back to `warmup_ratio=0.03` on `transformers` 4.x, where a fractional `warmup_steps` is not supported. If you hit an unexpected-keyword error, check your installed versions first.
 
 Run it:
 
 ```bash
-pip install -r requirements.txt
 python train_qlora.py --model Qwen/Qwen2.5-7B-Instruct --data data --out out/qwen7b-triage
+
+# 16 GB GPU or a free Colab T4: the 1.5B model with fp16 compute
+python train_qlora.py --model Qwen/Qwen2.5-1.5B-Instruct --out out/qwen1.5b-triage --fp16 --batch-size 2
 ```
 
-With a couple of thousand examples this is roughly an hour or less on a modern 24 GB card; it varies a lot with GPU and sequence length.
+With the generated 1,414 training examples this is an estimated hour or less on a modern 24 GB card; it varies a lot with GPU and sequence length.
 
 ### What to watch while training
 
@@ -357,7 +430,7 @@ LLM_BASE_URL=http://localhost:8000/v1  LLM_MODEL=triage python inference.py inci
 LLM_BASE_URL=http://localhost:11434/v1 LLM_MODEL=triage python inference.py incident.txt   # Ollama
 ```
 
-See [Sampling, KV Cache & Quantization](../inference/inference.md) for why Q4_K_M is a common size/quality trade-off.
+See [Quantization & Serving](../inference/serving.md#quantization) for why Q4_K_M is a common size/quality trade-off.
 
 ## 7. Guardrails
 
@@ -394,7 +467,7 @@ def business_rule_errors(t: Triage, incident_text: str) -> list[str]:
     return errors
 ```
 
-**3. Retry with error feedback, then fail safe.** On failure, the invalid answer and the specific error go back to the model. After the retry budget, return `ok: false` and let the caller fall back to the old behaviour (page a human with the raw alerts). Fail *open toward humans*, never silently.
+**3. Retry with error feedback, then fail safe.** On failure, the invalid answer and the specific error go back to the model. After the retry budget, return `ok: false` and let the caller fall back to the old behavior (page a human with the raw alerts). Fail *open toward humans*, never silently.
 
 ```python title="inference.py"
 for attempt in range(1, max_retries + 2):
@@ -435,26 +508,36 @@ Most improvements come from data, not hyperparameters:
 1. Look at the per-template table. A held-out template with low accuracy usually means the training data lacks something it needs (for example, no other scenario where the root cause service differs from the symptomatic one).
 2. Read 20 failures. Are labels wrong, or is the model wrong? Fix labels first.
 3. Add targeted templates or real examples, regenerate, retrain, re-evaluate. Keep the held-out templates fixed so numbers stay comparable over time.
-4. Deploy in **shadow mode**: the model triages every real incident, but humans still decide. Compare, collect disagreements, review, and feed them back as training data.
+4. Deploy in **shadow mode**: the model triages every real incident, but humans still decide. Compare, collect disagreements, review, and feed them back as training data. [Deployment patterns](../production/llmops.md#deployment-patterns) covers shadow, canary and A/B releases.
 
 ## Milestones
 
-- [ ] Generate data; inspect 10 examples and the label distribution
-- [ ] Serve the base model and run the prompted baseline (with and without `--structured`)
+### Core (definition of done)
+
+Everything here runs on the synthetic data and one GPU (or Colab). When these are checked, the project is complete.
+
+- [ ] Generate data; inspect 10 examples and the label distribution; `evaluate.py --self-check` passes
+- [ ] Run the prompted baseline on the base model (with and without `--structured` if your backend supports it)
 - [ ] Write down target metrics, including a maximum acceptable under-triage rate
-- [ ] Train a QLoRA adapter (1.5B first if you want a fast smoke test, then 7B)
+- [ ] Train a QLoRA adapter (1.5B first if you want a fast smoke test, then 7B if you have 24 GB)
 - [ ] Evaluate and compare against the baseline; read the confusion matrix and per-template table
-- [ ] Merge and serve with vLLM; re-evaluate the served model
-- [ ] Export GGUF and run it in Ollama; re-evaluate
+- [ ] Read 20 failures and make one data change (a new template, clearer policy wording), retrain, and re-evaluate
+- [ ] Serve the model in one format (vLLM with the adapter or merged weights, or GGUF in Ollama) and re-evaluate what you serve
+
+### At work (optional)
+
+These need real incident data and a team, so they are not part of the definition of done.
+
+- [ ] Serve in a second format and compare its scores with the first
 - [ ] Label 50+ real (anonymized) incidents with the teacher, review them, and evaluate on them
-- [ ] Run in shadow mode for a week; triage the disagreements
+- [ ] Run in [shadow mode](../production/llmops.md#deployment-patterns) for a week; triage the disagreements
 
 !!! warning "Common pitfalls"
     - **Random splits of templated data.** Near-duplicates leak into test and inflate every metric. Split by template (and by time for real data).
     - **Training on the prompt tokens.** Without completion-only loss, most of the gradient goes into predicting alert text.
     - **Skipping the baseline.** Without it you can't tell whether fine-tuning bought anything over prompting plus constrained decoding.
     - **Trusting synthetic test scores.** They measure how well the model learned *your generator*. Validate on real incidents.
-    - **Evaluating the adapter, deploying the GGUF.** Quantization and merging change behaviour. Evaluate what you ship.
+    - **Evaluating the adapter, deploying the GGUF.** Quantization and merging change behavior. Evaluate what you ship.
     - **Secrets in logs.** Incident logs contain tokens and customer data. Redact before training, before teacher labeling, and before inference.
 
 ## Stretch goals
@@ -472,7 +555,7 @@ Most improvements come from data, not hyperparameters:
     Examples from the same template share structure, phrasing and next steps; a random split puts near-duplicates of training rows into test, so you'd measure memorization. Holding out templates tests generalization to unseen incident types, which is what production requires.
 
 ??? question "What does `completion_only_loss=True` with a prompt/completion dataset change?"
-    The loss is computed only on the assistant tokens (the JSON). System and user tokens are masked out. The model doesn't spend capacity learning to predict alert and log text, and the gradient focuses on the behaviour you actually want.
+    The loss is computed only on the assistant tokens (the JSON). System and user tokens are masked out. The model doesn't spend capacity learning to predict alert and log text, and the gradient focuses on the behavior you actually want.
 
 ??? question "Why should under-triage be tracked separately from severity accuracy?"
     Errors are asymmetric. Calling a P1 a P3 can leave an outage unattended; calling a P3 a P2 wakes someone unnecessarily. Two models with equal accuracy can have very different under-triage rates, and that rate is what an on-call team cares about.

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """QLoRA fine-tuning for the Incident Triage Copilot with transformers + peft + trl.
 
-Written against TRL's SFTConfig/SFTTrainer API from TRL 0.20+ (`max_length`, `processing_class`,
+Uses the SFTConfig/SFTTrainer API of TRL 1.x (stable since 0.20: `max_length`, `processing_class`,
 conversational prompt/completion datasets with completion-only loss). See requirements.txt.
 
     # 7B on a single 24 GB GPU (RTX 3090/4090, A10G, L4):
@@ -13,6 +13,7 @@ conversational prompt/completion datasets with completion-only loss). See requir
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import json
 
 import torch
@@ -78,6 +79,9 @@ def main() -> None:
     )
 
     # ---- trainer --------------------------------------------------------------------------
+    # transformers 5 removed `warmup_ratio`; a float `warmup_steps` below 1 is now the ratio.
+    has_ratio = "warmup_ratio" in {f.name for f in dataclasses.fields(SFTConfig)}
+    warmup = {"warmup_ratio": 0.03} if has_ratio else {"warmup_steps": 0.03}
     cfg = SFTConfig(
         output_dir=args.out,
         num_train_epochs=args.epochs,
@@ -86,7 +90,7 @@ def main() -> None:
         gradient_accumulation_steps=args.grad_accum,
         learning_rate=args.lr,
         lr_scheduler_type="cosine",
-        warmup_ratio=0.03,
+        **warmup,                            # 3% linear warmup
         weight_decay=0.0,
         max_grad_norm=1.0,
         bf16=not args.fp16,
@@ -118,7 +122,7 @@ def main() -> None:
     trainer.model.print_trainable_parameters()
     trainer.train()
 
-    trainer.save_model(args.out)        # saves only the LoRA adapter (tens of MB)
+    trainer.save_model(args.out)        # saves only the LoRA adapter (roughly 160 MB at rank 16 on the 7B model)
     tokenizer.save_pretrained(args.out)
     with open(f"{args.out}/train_args.json", "w") as f:
         json.dump(vars(args), f, indent=2)

@@ -1,0 +1,8 @@
+sentence-transformers>=3.0   # embeddings (bi-encoder) + CrossEncoder reranker; pulls in torch
+qdrant-client>=1.10          # query_points API, local (embedded) mode
+rank_bm25>=0.2.2
+numpy>=1.26
+openai>=1.40                 # client for any OpenAI-compatible endpoint (Ollama, vLLM, hosted)
+fastapi>=0.110
+uvicorn>=0.29
+pydantic>=2.6

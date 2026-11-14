@@ -1,0 +1,13 @@
+# generate_data.py needs only the Python standard library (3.10+).
+# Training / evaluation (CUDA GPU required for training):
+torch>=2.3
+transformers>=4.56
+datasets>=2.20
+peft>=0.13
+trl>=0.20            # SFTConfig(max_length=..., completion_only_loss=...) API used in train_qlora.py
+bitsandbytes>=0.43   # 4-bit NF4 quantization (Linux + NVIDIA GPU)
+accelerate>=0.34
+pydantic>=2.6
+openai>=1.40         # client for vLLM / Ollama / hosted OpenAI-compatible endpoints
+# Serving (install separately, ideally in its own environment):
+# vllm

@@ -1,0 +1,149 @@
+site_name: LLM From Scratch
+site_description: A hands-on path from zero to building, pretraining, post-training, fine-tuning and deploying your own language models, RAG systems and decision models.
+site_url: https://vivek-rm-14286.github.io/llm-from-scratch/
+repo_url: https://github.com/vivek-rm-14286/llm-from-scratch
+repo_name: llm-from-scratch
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  icon:
+    logo: material/brain
+    repo: fontawesome/brands/github
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep purple
+      accent: amber
+      toggle: { icon: material/weather-night, name: Switch to dark mode }
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep purple
+      accent: amber
+      toggle: { icon: material/weather-sunny, name: Switch to light mode }
+  font:
+    text: Inter
+    code: JetBrains Mono
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.indexes
+    - navigation.top
+    - navigation.footer
+    - navigation.instant
+    - navigation.tracking
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+    - toc.follow
+
+nav:
+  - Home: index.md
+  - Start Here:
+      - start/index.md
+      - Learning Roadmap: start/roadmap.md
+      - Setup, Hardware & Budget: start/setup.md
+  - Foundations:
+      - foundations/index.md
+      - Math You Actually Need: foundations/math.md
+      - Python & PyTorch: foundations/pytorch.md
+      - Neural Networks & Backprop: foundations/neural-networks.md
+  - Language Models:
+      - llm/index.md
+      - Tokenization: llm/tokenization.md
+      - Embeddings & Attention: llm/attention.md
+      - The Transformer, Line by Line: llm/transformer.md
+      - Modern Architectures & SLM Design: llm/modern-architectures.md
+      - Scaling Laws & Compute: llm/scaling-laws.md
+  - Pretraining:
+      - pretraining/index.md
+      - Data Pipelines: pretraining/data.md
+      - The Training Loop: pretraining/training.md
+      - Distributed Training: pretraining/distributed.md
+      - Evaluation: pretraining/evaluation.md
+  - Post-training:
+      - post-training/index.md
+      - Supervised Fine-Tuning (SFT): post-training/sft.md
+      - Preference Optimization (RLHF, DPO): post-training/preference.md
+      - Reasoning & RL with Verifiable Rewards: post-training/reasoning-rl.md
+  - Fine-tuning:
+      - finetuning/index.md
+      - LoRA & QLoRA: finetuning/lora-qlora.md
+  - Inference:
+      - inference/index.md
+      - Sampling, KV Cache & Quantization: inference/inference.md
+  - RAG:
+      - rag/index.md
+      - RAG Fundamentals: rag/fundamentals.md
+      - Advanced RAG & Evaluation: rag/advanced.md
+  - Decision Models:
+      - decision/index.md
+      - Reinforcement Learning Basics: decision/rl-basics.md
+      - DQN & PPO: decision/policy-methods.md
+      - Imitation Learning: decision/imitation.md
+      - System 1 & System 2 Models: decision/system-one.md
+      - Decision Models for Routing & Classification: decision/routing-models.md
+  - Projects:
+      - projects/index.md
+      - "1. Build a 500M SLM From Scratch": projects/p1-500m-model.md
+      - "2. Fine-tune an Open-Weight Model": projects/p2-finetune.md
+      - "3. Build a Production RAG System": projects/p3-rag.md
+      - "4. A Decision Model That Plays": projects/p4-decision-model.md
+  - Reference:
+      - Glossary: glossary.md
+      - Resources: resources.md
+
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.betterem
+  - pymdownx.caret
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+extra_javascript:
+  - assets/javascripts/katex.js
+  - https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js
+  - https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js
+
+extra_css:
+  - https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css
+  - assets/stylesheets/extra.css
+
+plugins:
+  - search
+
+validation:
+  links:
+    not_found: warn
+    anchors: warn

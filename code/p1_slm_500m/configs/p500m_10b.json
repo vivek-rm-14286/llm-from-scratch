@@ -1,0 +1,18 @@
+{
+  "model": "p500m",
+  "data_dir": "data/fwe",
+  "out_dir": "out/p500m",
+  "seq_len": 2048,
+  "batch_size": 16,
+  "total_batch_tokens": 524288,
+  "lr": 8e-4,
+  "min_lr_frac": 0.0,
+  "schedule": "wsd",
+  "warmup_steps": 1000,
+  "decay_frac": 0.2,
+  "max_steps": 19073,
+  "eval_every": 500,
+  "sample_every": 1000,
+  "save_every": 1000,
+  "keep_every": 5000
+}

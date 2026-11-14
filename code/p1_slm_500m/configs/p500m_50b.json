@@ -1,0 +1,17 @@
+{
+  "model": "p500m",
+  "data_dir": "data/mix",
+  "out_dir": "out/p500m_50b",
+  "seq_len": 2048,
+  "batch_size": 16,
+  "total_batch_tokens": 1048576,
+  "lr": 1e-3,
+  "schedule": "wsd",
+  "warmup_steps": 1000,
+  "decay_frac": 0.15,
+  "max_steps": 47684,
+  "eval_every": 1000,
+  "sample_every": 2000,
+  "save_every": 1000,
+  "keep_every": 5000
+}

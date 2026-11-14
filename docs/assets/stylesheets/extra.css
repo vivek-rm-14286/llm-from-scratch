@@ -1,0 +1,15 @@
+:root { --md-text-font: "Inter"; }
+.md-typeset h1 { font-weight: 700; }
+.md-typeset .grid.cards > ul > li { border-radius: .5rem; }
+.md-typeset table:not([class]) { font-size: .72rem; }
+.hero { padding: 1.5rem 0 1rem; }
+.hero h1 { font-size: 2.4rem; margin-bottom: .4rem; }
+.hero p.tagline { font-size: 1.05rem; opacity: .85; max-width: 46rem; }
+.katex-display { overflow-x: auto; overflow-y: hidden; }
+/* No programming ligatures in code (-> and >= must stay literal) */
+.md-typeset code, .md-typeset pre, .md-typeset kbd { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
+/* Mobile overflow guards */
+.md-typeset :not(pre) > code { overflow-wrap: anywhere; }
+.md-typeset .grid > *, .md-typeset .tabbed-set > * { min-width: 0; }
+.md-typeset .mermaid { overflow-x: auto; }
+.md-typeset canvas { max-width: 100%; }

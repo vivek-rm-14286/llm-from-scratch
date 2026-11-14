@@ -1,0 +1,8 @@
+numpy>=1.26
+gymnasium>=1.0
+torch>=2.5
+# rendering, human play and live visualization (not needed for headless training)
+pygame>=2.5
+# ONNX export + fast CPU inference
+onnx>=1.16
+onnxruntime>=1.18

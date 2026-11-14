@@ -1,1 +1,5 @@
-mkdocs-material==9.8.*
+# Build-time dependencies for compiling docs/*.md into the React app (app/scripts/build_content.py)
+markdown==3.11.*
+pymdown-extensions==13.*
+pygments==2.*
+pyyaml==6.*

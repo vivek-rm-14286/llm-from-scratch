@@ -12,7 +12,7 @@ Reading only gets you so far. These four projects make you build each part of th
 
     *Prerequisites:* [Transformer](../llm/transformer.md), [Modern architectures](../llm/modern-architectures.md), [Pretraining](../pretraining/index.md), [SFT](../post-training/sft.md)
 
-    [:octicons-arrow-right-24: Start project 1](p1-500m-model.md)
+    [Start project 1](p1-500m-model.md)
 
 -   **2. Fine-tune an open-weight model: Incident Triage Copilot**
 
@@ -22,7 +22,7 @@ Reading only gets you so far. These four projects make you build each part of th
 
     *Prerequisites:* [Fine-tuning](../finetuning/index.md), [LoRA & QLoRA](../finetuning/lora-qlora.md), [Inference](../inference/inference.md)
 
-    [:octicons-arrow-right-24: Start project 2](p2-finetune.md)
+    [Start project 2](p2-finetune.md)
 
 -   **3. Production RAG: Support Engineer Copilot**
 
@@ -32,7 +32,7 @@ Reading only gets you so far. These four projects make you build each part of th
 
     *Prerequisites:* [RAG fundamentals](../rag/fundamentals.md), [Advanced RAG](../rag/advanced.md)
 
-    [:octicons-arrow-right-24: Start project 3](p3-rag.md)
+    [Start project 3](p3-rag.md)
 
 -   **4. A decision model that plays**
 
@@ -42,7 +42,7 @@ Reading only gets you so far. These four projects make you build each part of th
 
     *Prerequisites:* [RL basics](../decision/rl-basics.md), [DQN & PPO](../decision/policy-methods.md), [Imitation learning](../decision/imitation.md)
 
-    [:octicons-arrow-right-24: Start project 4](p4-decision-model.md)
+    [Start project 4](p4-decision-model.md)
 
 </div>
 

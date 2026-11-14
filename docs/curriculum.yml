@@ -1,0 +1,116 @@
+site:
+  title: LLM From Scratch
+  description: A hands-on path from zero to building, pretraining, post-training, fine-tuning and deploying your own language models, RAG systems and decision models.
+  repo: https://github.com/vivek-rm-14286/llm-from-scratch
+tracks:
+- title: Fundamentals
+  code: F
+  blurb: From zero to a working transformer — the math, PyTorch, and every piece of a modern language model built by hand.
+  modules:
+  - title: Start Here
+    blurb: How the site is organised, a 21-week roadmap, and the hardware and budget you need.
+    lessons:
+    - Overview: start/index.md
+    - Learning Roadmap: start/roadmap.md
+    - Setup, Hardware & Budget: start/setup.md
+  - title: Foundations
+    blurb: Linear algebra, gradients, PyTorch and backprop — only what you need, implemented by hand.
+    lessons:
+    - Overview: foundations/index.md
+    - Math You Actually Need: foundations/math.md
+    - Python & PyTorch: foundations/pytorch.md
+    - Neural Networks & Backprop: foundations/neural-networks.md
+  - title: Language Models
+    blurb: Tokenizers, attention, a GPT line by line, modern architectures, scaling laws, other families and multimodal models.
+    lessons:
+    - Overview: llm/index.md
+    - Tokenization: llm/tokenization.md
+    - Embeddings & Attention: llm/attention.md
+    - The Transformer, Line by Line: llm/transformer.md
+    - Modern Architectures & SLM Design: llm/modern-architectures.md
+    - Scaling Laws & Compute: llm/scaling-laws.md
+    - Architecture Families & Beyond Transformers: llm/architecture-families.md
+    - Multimodal Models: llm/multimodal.md
+- title: Training Models
+  code: T
+  blurb: Pretrain a base model, post-train it into an assistant, and adapt open-weight models to real work.
+  modules:
+  - title: Pretraining
+    blurb: Data pipelines, the training loop, distributed training, GPU performance and evaluation.
+    lessons:
+    - Overview: pretraining/index.md
+    - Data Pipelines: pretraining/data.md
+    - The Training Loop: pretraining/training.md
+    - Distributed Training: pretraining/distributed.md
+    - GPU Performance Engineering: pretraining/gpu-performance.md
+    - Evaluation: pretraining/evaluation.md
+  - title: Post-training
+    blurb: SFT, reward models, RLHF, DPO, GRPO, distillation and synthetic data.
+    lessons:
+    - Overview: post-training/index.md
+    - Supervised Fine-Tuning (SFT): post-training/sft.md
+    - Preference Optimization (RLHF, DPO): post-training/preference.md
+    - Reasoning & RL with Verifiable Rewards: post-training/reasoning-rl.md
+    - Distillation & Synthetic Data: post-training/distillation-synthetic-data.md
+  - title: Fine-tuning
+    blurb: LoRA and QLoRA on one GPU, continued pretraining and model merging.
+    lessons:
+    - Overview: finetuning/index.md
+    - LoRA & QLoRA: finetuning/lora-qlora.md
+    - Continued Pretraining & Model Merging: finetuning/merging-continued-pretraining.md
+- title: Applying Models
+  code: A
+  blurb: Serve models fast, ground them in your data, build agents on top, and ship them safely.
+  modules:
+  - title: Inference
+    blurb: Sampling, the KV cache, quantization, speculative decoding and serving stacks.
+    lessons:
+    - Overview: inference/index.md
+    - Sampling, KV Cache & Quantization: inference/inference.md
+  - title: RAG
+    blurb: Embeddings, hybrid search, reranking, citations, permissions and evaluation.
+    lessons:
+    - Overview: rag/index.md
+    - RAG Fundamentals: rag/fundamentals.md
+    - Advanced RAG & Evaluation: rag/advanced.md
+  - title: Applications
+    blurb: Prompt and context engineering, constrained decoding, agents, tool use and MCP.
+    lessons:
+    - Overview: applications/index.md
+    - Prompt & Context Engineering: applications/prompting.md
+    - Agents & Tool Use: applications/agents.md
+  - title: Safety & Production
+    blurb: Red-teaming, guardrails, prompt injection, interpretability and LLMOps.
+    lessons:
+    - Overview: production/index.md
+    - Safety, Red-Teaming & Guardrails: production/safety.md
+    - Interpretability: production/interpretability.md
+    - 'LLMOps: Shipping & Operating Models': production/llmops.md
+- title: Decision Models
+  code: D
+  blurb: Models that choose actions instead of words — bandits, RL, imitation learning, fast policies and routers.
+  modules:
+  - title: Decision Models
+    blurb: Bandits, Q-learning, DQN, PPO, imitation learning, System 1 policies and decision/routing models.
+    lessons:
+    - Overview: decision/index.md
+    - Reinforcement Learning Basics: decision/rl-basics.md
+    - DQN & PPO: decision/policy-methods.md
+    - Imitation Learning: decision/imitation.md
+    - System 1 & System 2 Models: decision/system-one.md
+    - Decision Models for Routing & Classification: decision/routing-models.md
+- title: Projects
+  code: P
+  blurb: Four end-to-end builds with complete, runnable code. Each one ties several modules together.
+  modules:
+  - title: Capstone Projects
+    blurb: A 500M SLM, a QLoRA incident-triage copilot, a support RAG copilot and a game-playing policy.
+    lessons:
+    - Overview: projects/index.md
+    - Build a 500M SLM From Scratch: projects/p1-500m-model.md
+    - Fine-tune an Open-Weight Model: projects/p2-finetune.md
+    - Build a Production RAG System: projects/p3-rag.md
+    - A Decision Model That Plays: projects/p4-decision-model.md
+reference:
+- Glossary: glossary.md
+- Resources: resources.md

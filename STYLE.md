@@ -1,6 +1,6 @@
 # Content style guide (for all authors of this site)
 
-Site: MkDocs Material, docs in `docs/`. Runnable project code in `code/<project>/`.
+Site: custom React app in `app/` that compiles `docs/*.md` (Python-Markdown + pymdown-extensions). Every page must be listed in `docs/curriculum.yml`. Runnable project code in `code/<project>/`.
 Live URL: https://vivek-rm-14286.github.io/llm-from-scratch/  Repo: https://github.com/vivek-rm-14286/llm-from-scratch
 Link to repo code as https://github.com/vivek-rm-14286/llm-from-scratch/tree/main/code/<dir>
 
@@ -18,7 +18,7 @@ Link to repo code as https://github.com/vivek-rm-14286/llm-from-scratch/tree/mai
 4. `!!! warning "Common pitfalls"` near the end.
 5. `## Check your understanding` with 3-5 collapsible Q&As: `??? question "Q..."` with the answer indented inside.
 6. `## Further reading` - real papers (arXiv links you are confident about) and docs.
-7. Finish with a "Next:" link to the following page in the nav.
+7. No manual "Next:" link — the app renders previous/next cards.
 Concept pages: ~1500-3500 words. Project pages: long, with complete, runnable code.
 
 ## Markdown features available
@@ -31,6 +31,6 @@ Concept pages: ~1500-3500 words. Project pages: long, with complete, runnable co
 - Task lists `- [ ] item`. Keys `++ctrl+c++`. Footnotes `[^1]`.
 
 ## Links
-- Internal links are RELATIVE .md paths, e.g. from docs/llm/attention.md -> `[Transformer](transformer.md)`, `[RAG](../rag/fundamentals.md)`. They are validated at build time. Only link to pages that exist in the nav (see mkdocs.yml).
+- Internal links are RELATIVE .md paths, e.g. from docs/llm/attention.md -> `[Transformer](transformer.md)`, `[RAG](../rag/fundamentals.md)`. They are validated at build time. Only link to pages listed in docs/curriculum.yml.
 - Only write the files assigned to you.
 - No provenance wording ("according to X docs", "as captured from..."). Write plain explanatory content; papers go in "Further reading".

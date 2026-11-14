@@ -398,5 +398,3 @@ To write your own environment, subclass `gymnasium.Env`. Define `observation_spa
 - Russo et al., [A Tutorial on Thompson Sampling](https://arxiv.org/abs/1707.02038) (2017).
 - [Gymnasium documentation](https://gymnasium.farama.org/), especially "Create a Custom Environment" and the notes on `terminated`/`truncated`.
 - OpenAI [Spinning Up in Deep RL](https://spinningup.openai.com/), a concise and practical introduction.
-
-**Next:** [DQN & PPO](policy-methods.md)

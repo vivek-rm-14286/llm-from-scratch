@@ -374,5 +374,3 @@ Two caveats. Temperature 0 is not fully deterministic on most serving stacks (ba
 - Willard and Louf, [Efficient Guided Generation for Large Language Models](https://arxiv.org/abs/2307.09702) (2023), the method behind Outlines.
 - Dong et al., [XGrammar: Flexible and Efficient Structured Generation Engine for Large Language Models](https://arxiv.org/abs/2411.15100) (2024).
 - [llama.cpp GBNF grammar guide](https://github.com/ggml-org/llama.cpp/blob/master/grammars/README.md).
-
-Next: [Agents & Tool Use](agents.md)

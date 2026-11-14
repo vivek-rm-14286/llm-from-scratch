@@ -398,5 +398,3 @@ The policy optimizes exactly what you measure, including the bugs.
 - Yu et al., *DAPO: An Open-Source LLM Reinforcement Learning System at Scale* - [arXiv:2503.14476](https://arxiv.org/abs/2503.14476)
 - Lambert et al., *Tülu 3* (RLVR) - [arXiv:2411.15124](https://arxiv.org/abs/2411.15124)
 - TRL `GRPOTrainer` docs - [huggingface.co/docs/trl/grpo_trainer](https://huggingface.co/docs/trl/grpo_trainer)
-
-**Next:** [Distillation & Synthetic Data](distillation-synthetic-data.md)

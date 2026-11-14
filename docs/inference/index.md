@@ -87,5 +87,3 @@ Related pages: [LoRA & QLoRA](../finetuning/lora-qlora.md) covers 4-bit quantiza
 - Kwon et al., *Efficient Memory Management for Large Language Model Serving with PagedAttention* (vLLM) - [arXiv:2309.06180](https://arxiv.org/abs/2309.06180)
 - vLLM docs - [docs.vllm.ai](https://docs.vllm.ai/)
 - llama.cpp - [github.com/ggml-org/llama.cpp](https://github.com/ggml-org/llama.cpp)
-
-**Next:** [Sampling, KV Cache & Quantization](inference.md)

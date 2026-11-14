@@ -147,7 +147,3 @@ The [roadmap](roadmap.md) assumes roughly 8-12 hours per week for about 21 weeks
 
 ??? question "Which project can you start with the least hardware?"
     Project 4 (the game policy) and most of Project 3 (RAG) run on a laptop. Project 2 needs a GPU with enough memory for a quantized model, typically 16-24 GB. Project 1 needs rented data-center GPUs to finish in reasonable time.
-
-## Next
-
-Next: [Learning Roadmap](roadmap.md)

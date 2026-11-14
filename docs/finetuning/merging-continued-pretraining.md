@@ -536,5 +536,3 @@ A merge is a new model; it needs the same evaluation as any other.
 - Goddard et al., *Arcee's MergeKit: A Toolkit for Merging Large Language Models* - [arXiv:2403.13257](https://arxiv.org/abs/2403.13257); [github.com/arcee-ai/mergekit](https://github.com/arcee-ai/mergekit)
 - Biderman et al., *LoRA Learns Less and Forgets Less* - [arXiv:2405.09673](https://arxiv.org/abs/2405.09673)
 - PEFT docs: [model merging](https://huggingface.co/docs/peft/developer_guides/model_merging)
-
-**Next:** [Inference](../inference/index.md)

@@ -180,5 +180,3 @@ When a run underperforms, **look at the data before the hyperparameters.** Read 
 - Hugging Face TRL docs - [huggingface.co/docs/trl](https://huggingface.co/docs/trl)
 
 Ready to do it for real? [Project 2: Fine-tune an Open-Weight Model](../projects/p2-finetune.md) walks you through an end-to-end run.
-
-**Next:** [LoRA & QLoRA](lora-qlora.md)

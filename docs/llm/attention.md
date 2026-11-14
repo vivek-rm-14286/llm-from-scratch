@@ -319,5 +319,3 @@ y = F.scaled_dot_product_attention(q, k, v, is_causal=True)
 - Dao et al., [FlashAttention](https://arxiv.org/abs/2205.14135), 2022, and [FlashAttention-2](https://arxiv.org/abs/2307.08691), 2023
 - Jay Alammar, [The Illustrated Transformer](https://jalammar.github.io/illustrated-transformer/)
 - [PyTorch `scaled_dot_product_attention` docs](https://pytorch.org/docs/stable/generated/torch.nn.functional.scaled_dot_product_attention.html)
-
-**Next:** [The Transformer, Line by Line](transformer.md)

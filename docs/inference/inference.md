@@ -618,5 +618,3 @@ print(f"TTFT {ttft * 1000:.0f} ms, TPOT {tpot * 1000:.1f} ms, chunks {len(times)
 - Muralidharan et al., *Compact Language Models via Pruning and Knowledge Distillation* (Minitron) - [arXiv:2407.14679](https://arxiv.org/abs/2407.14679)
 - Zheng et al., *SGLang: Efficient Execution of Structured Language Model Programs* - [arXiv:2312.07104](https://arxiv.org/abs/2312.07104)
 - Docs: [vLLM](https://docs.vllm.ai/), [SGLang](https://docs.sglang.ai/), [llama.cpp](https://github.com/ggml-org/llama.cpp), [Ollama](https://ollama.com/), [MLX LM](https://github.com/ml-explore/mlx-lm), [ONNX Runtime GenAI](https://github.com/microsoft/onnxruntime-genai)
-
-**Next:** [RAG](../rag/index.md)

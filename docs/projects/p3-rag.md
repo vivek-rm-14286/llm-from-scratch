@@ -431,5 +431,3 @@ What this project deliberately leaves simple, and what to do about it:
 - Es et al., [RAGAS: Automated Evaluation of Retrieval Augmented Generation](https://arxiv.org/abs/2309.15217) (2023).
 - OWASP, [Top 10 for LLM Applications](https://owasp.org/www-project-top-10-for-large-language-model-applications/), especially prompt injection and sensitive information disclosure.
 - [FastAPI security documentation](https://fastapi.tiangolo.com/tutorial/security/).
-
-Next: [Project 4: A Decision Model That Plays](p4-decision-model.md)

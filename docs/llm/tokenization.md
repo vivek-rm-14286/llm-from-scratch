@@ -384,5 +384,3 @@ ids = tok.apply_chat_template(messages, add_generation_prompt=True, return_tenso
 - [Hugging Face `tokenizers` documentation](https://huggingface.co/docs/tokenizers)
 - [tiktoken on GitHub](https://github.com/openai/tiktoken)
 - [Chat templates in transformers](https://huggingface.co/docs/transformers/chat_templating)
-
-**Next:** [Embeddings & Attention](attention.md)

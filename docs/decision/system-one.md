@@ -259,5 +259,3 @@ Rules of thumb:
 - Hinton, Vinyals & Dean, [Distilling the Knowledge in a Neural Network](https://arxiv.org/abs/1503.02531) (2015).
 - DeepSeek-AI, [DeepSeek-R1: Incentivizing Reasoning Capability in LLMs via Reinforcement Learning](https://arxiv.org/abs/2501.12948) (2025).
 - Silver et al., [Mastering Chess and Shogi by Self-Play with a General Reinforcement Learning Algorithm](https://arxiv.org/abs/1712.01815) (2017, AlphaZero). Fast policy/value nets guiding slow search.
-
-**Next:** [Decision Models for Routing & Classification](routing-models.md)

@@ -473,5 +473,3 @@ Notice the spread: Llama 3.2 1B is relatively shallow and wide (good GPU efficie
 - Liu et al., [MobileLLM: Optimizing Sub-billion Parameter Language Models for On-Device Use Cases](https://arxiv.org/abs/2402.14905), 2024
 - Gemma Team, [Gemma 3 Technical Report](https://arxiv.org/abs/2503.19786), 2025
 - Team OLMo, [2 OLMo 2 Furious](https://arxiv.org/abs/2501.00656), 2025
-
-**Next:** [Scaling Laws & Compute](scaling-laws.md)

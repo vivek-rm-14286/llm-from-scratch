@@ -220,5 +220,3 @@ The rest of this section focuses on learned decision models, but keep this layer
 
 !!! tip "Prerequisites"
     You should be comfortable with PyTorch basics ([Python & PyTorch](../foundations/pytorch.md)) and with training a small network ([Neural Networks & Backprop](../foundations/neural-networks.md)). The LLM connections make more sense after [Supervised Fine-Tuning](../post-training/sft.md) and [Preference Optimization](../post-training/preference.md), but those are not required to start.
-
-**Next:** [Reinforcement Learning Basics](rl-basics.md)

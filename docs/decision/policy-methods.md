@@ -438,5 +438,3 @@ RL code fails quietly. It runs, nothing crashes, and the agent just does not lea
 - Schulman et al., [Proximal Policy Optimization Algorithms](https://arxiv.org/abs/1707.06347) (2017).
 - Huang et al., [The 37 Implementation Details of Proximal Policy Optimization](https://iclr-blog-track.github.io/2022/03/25/ppo-implementation-details/) (ICLR blog track 2022), plus the [CleanRL](https://github.com/vwxyzjn/cleanrl) single-file implementations.
 - Ng, Harada & Russell (1999), "Policy invariance under reward transformations: Theory and application to reward shaping".
-
-**Next:** [Imitation Learning](imitation.md)

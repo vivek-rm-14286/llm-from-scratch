@@ -63,7 +63,3 @@ The math page gives you the vocabulary, the PyTorch page gives you the tool, and
 - 3Blue1Brown, [Neural Networks](https://www.3blue1brown.com/topics/neural-networks) and [Linear Algebra](https://www.3blue1brown.com/topics/linear-algebra) video series: excellent visual intuition
 - Andrej Karpathy, [Neural Networks: Zero to Hero](https://karpathy.ai/zero-to-hero.html): the first lecture builds micrograd live
 - Goodfellow, Bengio, Courville, [Deep Learning](https://www.deeplearningbook.org/): the standard reference text, free online
-
-## Next
-
-Next: [Math You Actually Need](math.md)

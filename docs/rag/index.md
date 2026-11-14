@@ -49,5 +49,3 @@ flowchart LR
 ## Where this leads
 
 The capstone for this section is [Project 3: Build a Production RAG System](../projects/p3-rag.md), a support-engineer copilot with hybrid search, a reranker, per-document access control, a FastAPI service and an evaluation harness.
-
-Next: [RAG Fundamentals](fundamentals.md)

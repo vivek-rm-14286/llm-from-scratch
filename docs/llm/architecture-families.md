@@ -478,5 +478,3 @@ For sequence length $T$, the qualitative picture:
 - Lieber et al., [Jamba: A Hybrid Transformer-Mamba Language Model](https://arxiv.org/abs/2403.19887), 2024
 - Sahoo et al., [Simple and Effective Masked Diffusion Language Models (MDLM)](https://arxiv.org/abs/2406.07524), 2024
 - Nie et al., [Large Language Diffusion Models (LLaDA)](https://arxiv.org/abs/2502.09992), 2025
-
-**Next:** [Multimodal Models](multimodal.md)

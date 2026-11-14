@@ -102,5 +102,3 @@ You have already met many of the building blocks. This section assumes them and 
 - Sculley et al., *Hidden Technical Debt in Machine Learning Systems* (NeurIPS 2015). Why the model is a small part of an ML system.
 - [OWASP Top 10 for LLM Applications](https://owasp.org/www-project-top-10-for-large-language-model-applications/).
 - [NIST AI Risk Management Framework](https://www.nist.gov/itl/ai-risk-management-framework).
-
-**Next:** [Safety, Red-Teaming & Guardrails](safety.md)

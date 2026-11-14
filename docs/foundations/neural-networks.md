@@ -634,7 +634,3 @@ Common variants: a final LR of about 10% of the peak, and **warmup-stable-decay 
 - Hendrycks and Gimpel, [Gaussian Error Linear Units (GELUs)](https://arxiv.org/abs/1606.08415); Shazeer, [GLU Variants Improve Transformer](https://arxiv.org/abs/2002.05202)
 - Karpathy, [micrograd](https://github.com/karpathy/micrograd) and the first lecture of [Neural Networks: Zero to Hero](https://karpathy.ai/zero-to-hero.html)
 - [CS231n notes on backpropagation](https://cs231n.github.io/optimization-2/)
-
-## Next
-
-Next: [Language Models](../llm/index.md)

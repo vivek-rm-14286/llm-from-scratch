@@ -621,5 +621,3 @@ The repository [README](https://github.com/vivek-rm-14286/llm-from-scratch/tree/
 - de Boer et al. (2005), "A Tutorial on the Cross-Entropy Method"
 - Salimans et al., [Evolution Strategies as a Scalable Alternative to Reinforcement Learning](https://arxiv.org/abs/1703.03864) (2017)
 - [ONNX Runtime](https://onnxruntime.ai/docs/) documentation
-
-**Next:** [Glossary](../glossary.md)

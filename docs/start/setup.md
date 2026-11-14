@@ -336,7 +336,3 @@ print(path)
 - Rajbhandari et al., [ZeRO: Memory Optimizations Toward Training Trillion Parameter Models](https://arxiv.org/abs/1910.02054) (where the 16-bytes-per-parameter accounting comes from)
 - Micikevicius et al., [Mixed Precision Training](https://arxiv.org/abs/1710.03740)
 - Hoffmann et al., [Training Compute-Optimal Large Language Models](https://arxiv.org/abs/2203.15556) (Chinchilla)
-
-## Next
-
-Next: [Foundations](../foundations/index.md)

@@ -741,5 +741,3 @@ The output rows use the `messages` format that TRL's `SFTTrainer` accepts direct
 - Lee et al., *Deduplicating Training Data Makes Language Models Better* - [arXiv:2107.06499](https://arxiv.org/abs/2107.06499)
 - Shumailov et al., *The Curse of Recursion: Training on Generated Data Makes Models Forget* - [arXiv:2305.17493](https://arxiv.org/abs/2305.17493)
 - TRL docs: [GKDTrainer](https://huggingface.co/docs/trl/gkd_trainer), [SFTTrainer](https://huggingface.co/docs/trl/sft_trainer)
-
-**Next:** [Fine-tuning](../finetuning/index.md)

@@ -497,5 +497,3 @@ Rough targets: a well-tuned dense transformer on a single A100/H100 reaches roug
 - Triton tutorials (vector add, fused softmax, layer norm, matmul) - [triton-lang.org](https://triton-lang.org/main/getting-started/tutorials/index.html)
 - PyTorch docs: [torch.compile](https://pytorch.org/docs/stable/torch.compiler.html), [torch.profiler](https://pytorch.org/docs/stable/profiler.html), [CUDA semantics](https://pytorch.org/docs/stable/notes/cuda.html)
 - Hugging Face, *The Ultra-Scale Playbook* - [huggingface.co/spaces/nanotron/ultrascale-playbook](https://huggingface.co/spaces/nanotron/ultrascale-playbook)
-
-**Next:** [Evaluation](evaluation.md)

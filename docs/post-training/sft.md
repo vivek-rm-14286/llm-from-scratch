@@ -442,5 +442,3 @@ More on harnesses in [Evaluation](../pretraining/evaluation.md).
 - Zheng et al., *Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena* - [arXiv:2306.05685](https://arxiv.org/abs/2306.05685)
 - Hugging Face, *Chat templates* - [huggingface.co/docs/transformers/chat_templating](https://huggingface.co/docs/transformers/chat_templating)
 - TRL `SFTTrainer` docs - [huggingface.co/docs/trl/sft_trainer](https://huggingface.co/docs/trl/sft_trainer)
-
-**Next:** [Preference Optimization (RLHF, DPO)](preference.md)

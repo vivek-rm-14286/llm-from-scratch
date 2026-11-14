@@ -7,107 +7,127 @@ edit_uri: edit/main/docs/
 
 theme:
   name: material
+  custom_dir: overrides
+  favicon: assets/favicon.svg
   icon:
     logo: material/brain
     repo: fontawesome/brands/github
-  palette:
-    - media: "(prefers-color-scheme: light)"
-      scheme: default
-      primary: deep purple
-      accent: amber
-      toggle: { icon: material/weather-night, name: Switch to dark mode }
-    - media: "(prefers-color-scheme: dark)"
-      scheme: slate
-      primary: deep purple
-      accent: amber
-      toggle: { icon: material/weather-sunny, name: Switch to light mode }
   font:
     text: Inter
     code: JetBrains Mono
   features:
-    - navigation.tabs
-    - navigation.sections
-    - navigation.indexes
     - navigation.top
-    - navigation.footer
-    - navigation.instant
-    - navigation.tracking
     - search.suggest
     - search.highlight
     - content.code.copy
     - content.code.annotate
     - content.tabs.link
-    - toc.follow
 
 nav:
   - Home: index.md
-  - Start Here:
-      - start/index.md
-      - Learning Roadmap: start/roadmap.md
-      - Setup, Hardware & Budget: start/setup.md
-  - Foundations:
-      - foundations/index.md
-      - Math You Actually Need: foundations/math.md
-      - Python & PyTorch: foundations/pytorch.md
-      - Neural Networks & Backprop: foundations/neural-networks.md
-  - Language Models:
-      - llm/index.md
-      - Tokenization: llm/tokenization.md
-      - Embeddings & Attention: llm/attention.md
-      - The Transformer, Line by Line: llm/transformer.md
-      - Modern Architectures & SLM Design: llm/modern-architectures.md
-      - Scaling Laws & Compute: llm/scaling-laws.md
-      - Architecture Families & Beyond Transformers: llm/architecture-families.md
-      - Multimodal Models: llm/multimodal.md
-  - Pretraining:
-      - pretraining/index.md
-      - Data Pipelines: pretraining/data.md
-      - The Training Loop: pretraining/training.md
-      - Distributed Training: pretraining/distributed.md
-      - GPU Performance Engineering: pretraining/gpu-performance.md
-      - Evaluation: pretraining/evaluation.md
-  - Post-training:
-      - post-training/index.md
-      - Supervised Fine-Tuning (SFT): post-training/sft.md
-      - Preference Optimization (RLHF, DPO): post-training/preference.md
-      - Reasoning & RL with Verifiable Rewards: post-training/reasoning-rl.md
-      - Distillation & Synthetic Data: post-training/distillation-synthetic-data.md
-  - Fine-tuning:
-      - finetuning/index.md
-      - LoRA & QLoRA: finetuning/lora-qlora.md
-      - Continued Pretraining & Model Merging: finetuning/merging-continued-pretraining.md
-  - Inference:
-      - inference/index.md
-      - Sampling, KV Cache & Quantization: inference/inference.md
-  - RAG:
-      - rag/index.md
-      - RAG Fundamentals: rag/fundamentals.md
-      - Advanced RAG & Evaluation: rag/advanced.md
-  - Applications:
-      - applications/index.md
-      - Prompt & Context Engineering: applications/prompting.md
-      - Agents & Tool Use: applications/agents.md
+  - Fundamentals:
+      - Start Here:
+          - Overview: start/index.md
+          - Learning Roadmap: start/roadmap.md
+          - Setup, Hardware & Budget: start/setup.md
+      - Foundations:
+          - Overview: foundations/index.md
+          - Math You Actually Need: foundations/math.md
+          - Python & PyTorch: foundations/pytorch.md
+          - Neural Networks & Backprop: foundations/neural-networks.md
+      - Language Models:
+          - Overview: llm/index.md
+          - Tokenization: llm/tokenization.md
+          - Embeddings & Attention: llm/attention.md
+          - The Transformer, Line by Line: llm/transformer.md
+          - Modern Architectures & SLM Design: llm/modern-architectures.md
+          - Scaling Laws & Compute: llm/scaling-laws.md
+          - Architecture Families & Beyond Transformers: llm/architecture-families.md
+          - Multimodal Models: llm/multimodal.md
+  - Training Models:
+      - Pretraining:
+          - Overview: pretraining/index.md
+          - Data Pipelines: pretraining/data.md
+          - The Training Loop: pretraining/training.md
+          - Distributed Training: pretraining/distributed.md
+          - GPU Performance Engineering: pretraining/gpu-performance.md
+          - Evaluation: pretraining/evaluation.md
+      - Post-training:
+          - Overview: post-training/index.md
+          - Supervised Fine-Tuning (SFT): post-training/sft.md
+          - Preference Optimization (RLHF, DPO): post-training/preference.md
+          - Reasoning & RL with Verifiable Rewards: post-training/reasoning-rl.md
+          - Distillation & Synthetic Data: post-training/distillation-synthetic-data.md
+      - Fine-tuning:
+          - Overview: finetuning/index.md
+          - LoRA & QLoRA: finetuning/lora-qlora.md
+          - Continued Pretraining & Model Merging: finetuning/merging-continued-pretraining.md
+  - Applying Models:
+      - Inference:
+          - Overview: inference/index.md
+          - Sampling, KV Cache & Quantization: inference/inference.md
+      - RAG:
+          - Overview: rag/index.md
+          - RAG Fundamentals: rag/fundamentals.md
+          - Advanced RAG & Evaluation: rag/advanced.md
+      - Applications:
+          - Overview: applications/index.md
+          - Prompt & Context Engineering: applications/prompting.md
+          - Agents & Tool Use: applications/agents.md
+      - Safety & Production:
+          - Overview: production/index.md
+          - Safety, Red-Teaming & Guardrails: production/safety.md
+          - Interpretability: production/interpretability.md
+          - "LLMOps: Shipping & Operating Models": production/llmops.md
   - Decision Models:
-      - decision/index.md
-      - Reinforcement Learning Basics: decision/rl-basics.md
-      - DQN & PPO: decision/policy-methods.md
-      - Imitation Learning: decision/imitation.md
-      - System 1 & System 2 Models: decision/system-one.md
-      - Decision Models for Routing & Classification: decision/routing-models.md
-  - Safety & Production:
-      - production/index.md
-      - Safety, Red-Teaming & Guardrails: production/safety.md
-      - Interpretability: production/interpretability.md
-      - "LLMOps: Shipping & Operating Models": production/llmops.md
+      - Decision Models:
+          - Overview: decision/index.md
+          - Reinforcement Learning Basics: decision/rl-basics.md
+          - DQN & PPO: decision/policy-methods.md
+          - Imitation Learning: decision/imitation.md
+          - System 1 & System 2 Models: decision/system-one.md
+          - Decision Models for Routing & Classification: decision/routing-models.md
   - Projects:
-      - projects/index.md
-      - "1. Build a 500M SLM From Scratch": projects/p1-500m-model.md
-      - "2. Fine-tune an Open-Weight Model": projects/p2-finetune.md
-      - "3. Build a Production RAG System": projects/p3-rag.md
-      - "4. A Decision Model That Plays": projects/p4-decision-model.md
+      - Capstone Projects:
+          - Overview: projects/index.md
+          - Build a 500M SLM From Scratch: projects/p1-500m-model.md
+          - Fine-tune an Open-Weight Model: projects/p2-finetune.md
+          - Build a Production RAG System: projects/p3-rag.md
+          - A Decision Model That Plays: projects/p4-decision-model.md
   - Reference:
       - Glossary: glossary.md
       - Resources: resources.md
+
+extra:
+  tracks:
+    Fundamentals:
+      code: F
+      blurb: From zero to a working transformer — the math, PyTorch, and every piece of a modern language model built by hand.
+    Training Models:
+      code: T
+      blurb: Pretrain a base model, post-train it into an assistant, and adapt open-weight models to real work.
+    Applying Models:
+      code: A
+      blurb: Serve models fast, ground them in your data, build agents on top, and ship them safely.
+    Decision Models:
+      code: D
+      blurb: Models that choose actions instead of words — bandits, RL, imitation learning, fast policies and routers.
+    Projects:
+      code: P
+      blurb: Four end-to-end builds with complete, runnable code. Each one ties several modules together.
+  modules:
+    Start Here: How the site is organised, a 21-week roadmap, and the hardware and budget you need.
+    Foundations: Linear algebra, gradients, PyTorch and backprop — only what you need, implemented by hand.
+    Language Models: Tokenizers, attention, a GPT line by line, modern architectures, scaling laws, other families and multimodal models.
+    Pretraining: Data pipelines, the training loop, distributed training, GPU performance and evaluation.
+    Post-training: SFT, reward models, RLHF, DPO, GRPO, distillation and synthetic data.
+    Fine-tuning: LoRA and QLoRA on one GPU, continued pretraining and model merging.
+    Inference: Sampling, the KV cache, quantization, speculative decoding and serving stacks.
+    RAG: Embeddings, hybrid search, reranking, citations, permissions and evaluation.
+    Applications: Prompt and context engineering, constrained decoding, agents, tool use and MCP.
+    Safety & Production: Red-teaming, guardrails, prompt injection, interpretability and LLMOps.
+    Decision Models: Bandits, Q-learning, DQN, PPO, imitation learning, System 1 policies and decision/routing models.
+    Capstone Projects: A 500M SLM, a QLoRA incident-triage copilot, a support RAG copilot and a game-playing policy.
 
 markdown_extensions:
   - abbr
@@ -146,6 +166,7 @@ markdown_extensions:
       emoji_generator: !!python/name:material.extensions.emoji.to_svg
 
 extra_javascript:
+  - assets/javascripts/app.js
   - assets/javascripts/katex.js
   - https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js
   - https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js

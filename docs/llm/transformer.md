@@ -429,5 +429,3 @@ On a single modern GPU this runs in a few minutes; on a laptop (Apple MPS or CPU
 - Hendrycks & Gimpel, [Gaussian Error Linear Units (GELUs)](https://arxiv.org/abs/1606.08415), 2016
 - Andrej Karpathy, [nanoGPT](https://github.com/karpathy/nanoGPT) and "Let's build GPT: from scratch, in code, spelled out"
 - Elhage et al., [A Mathematical Framework for Transformer Circuits](https://transformer-circuits.pub/2021/framework/index.html), 2021 (the residual stream view)
-
-**Next:** [Modern Architectures & SLM Design](modern-architectures.md)

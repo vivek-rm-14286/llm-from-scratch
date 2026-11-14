@@ -274,7 +274,3 @@ Goal: turn your models into applications that are safe and that you can operate.
 
 ??? question "You are in week 15 and your adapter is worse than the prompted baseline. What do you check first?"
     The data and the formatting: is the chat template correct, is the loss masked to responses only, do train labels match the output schema, is there leakage or mislabeling. Then check that the learning rate is not far too high. Hyperparameter sweeps come last.
-
-## Next
-
-Next: [Setup, Hardware & Budget](setup.md)

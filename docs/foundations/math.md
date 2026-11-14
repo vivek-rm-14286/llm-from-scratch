@@ -445,7 +445,3 @@ The loss starts at $\ln 3 \approx 1.0986$ (uniform predictions, since $W = 0$) a
 - Goodfellow, Bengio, Courville, [Deep Learning](https://www.deeplearningbook.org/), chapters 2-4 (linear algebra, probability and information theory, numerical computation)
 - [Dive into Deep Learning](https://d2l.ai/), the appendix on mathematics for deep learning
 - Christopher Olah, [Calculus on Computational Graphs: Backpropagation](https://colah.github.io/posts/2015-08-Backprop/)
-
-## Next
-
-Next: [Python & PyTorch](pytorch.md)

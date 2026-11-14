@@ -101,5 +101,3 @@ Each box is a place where quality is won or lost, and each one is covered somewh
 - [Supervised Fine-Tuning](../post-training/sft.md), at least the section on chat templates.
 - [Sampling, KV Cache & Quantization](../inference/inference.md): you should know what logits, temperature and the KV cache are.
 - [RAG Fundamentals](../rag/fundamentals.md) is helpful context for the agents page.
-
-Next: [Prompt & Context Engineering](prompting.md)

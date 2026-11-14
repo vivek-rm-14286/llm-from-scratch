@@ -404,5 +404,3 @@ On SLURM clusters, wrap this in `srun`, and derive the endpoint from `scontrol s
 - Liang et al., *TorchTitan* - [arXiv:2410.06511](https://arxiv.org/abs/2410.06511)
 - PyTorch docs: [DDP tutorial](https://pytorch.org/tutorials/intermediate/ddp_tutorial.html), [FSDP2 tutorial](https://pytorch.org/tutorials/intermediate/FSDP_tutorial.html), [torchrun](https://pytorch.org/docs/stable/elastic/run.html)
 - Hugging Face, *The Ultra-Scale Playbook* - [huggingface.co/spaces/nanotron/ultrascale-playbook](https://huggingface.co/spaces/nanotron/ultrascale-playbook)
-
-**Next:** [GPU Performance Engineering](gpu-performance.md)

@@ -129,5 +129,3 @@ The line between pretraining and post-training has blurred. Two terms you will s
 - Grattafiori et al., *The Llama 3 Herd of Models* - [arXiv:2407.21783](https://arxiv.org/abs/2407.21783)
 - Allal et al., *SmolLM2: When Smol Goes Big* - [arXiv:2502.02737](https://arxiv.org/abs/2502.02737)
 - OLMo team, *2 OLMo 2 Furious* - [arXiv:2501.00656](https://arxiv.org/abs/2501.00656)
-
-**Next:** [Data Pipelines](data.md)

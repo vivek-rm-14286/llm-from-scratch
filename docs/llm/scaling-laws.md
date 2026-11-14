@@ -243,5 +243,3 @@ Wei et al. (2022) reported "emergent abilities": tasks where small models score 
 - Wei et al., [Emergent Abilities of Large Language Models](https://arxiv.org/abs/2206.07682), 2022
 - Schaeffer, Miranda, Koyejo, [Are Emergent Abilities of Large Language Models a Mirage?](https://arxiv.org/abs/2304.15004), 2023
 - Meta, [The Llama 3 Herd of Models](https://arxiv.org/abs/2407.21783), 2024
-
-**Next:** [Architecture Families & Beyond Transformers](architecture-families.md)

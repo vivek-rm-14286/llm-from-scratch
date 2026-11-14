@@ -378,7 +378,3 @@ print(loss)   # near or a bit above ln(100) = 4.6 for random logits
 - [Autograd mechanics](https://docs.pytorch.org/docs/stable/notes/autograd.html) in the PyTorch docs
 - [torch.einsum documentation](https://docs.pytorch.org/docs/stable/generated/torch.einsum.html)
 - Andrej Karpathy, [Neural Networks: Zero to Hero](https://karpathy.ai/zero-to-hero.html), the "makemore" lectures for PyTorch fluency
-
-## Next
-
-Next: [Neural Networks & Backprop](neural-networks.md)

@@ -186,5 +186,3 @@ Read these in order. Each page builds on the code of the previous one.
 - Gemma Team, [Gemma 3 Technical Report](https://arxiv.org/abs/2503.19786), 2025
 - Meta, [The Llama 3 Herd of Models](https://arxiv.org/abs/2407.21783), 2024
 - Abdin et al., [Phi-3 Technical Report](https://arxiv.org/abs/2404.14219), 2024
-
-**Next:** [Tokenization](tokenization.md)

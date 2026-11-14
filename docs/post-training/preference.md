@@ -409,5 +409,3 @@ Any time you optimize against a proxy, the optimizer finds the proxy's blind spo
 - Cui et al., *UltraFeedback* - [arXiv:2310.01377](https://arxiv.org/abs/2310.01377)
 - Dubois et al., *Length-Controlled AlpacaEval* - [arXiv:2404.04475](https://arxiv.org/abs/2404.04475)
 - TRL `DPOTrainer` docs - [huggingface.co/docs/trl/dpo_trainer](https://huggingface.co/docs/trl/dpo_trainer)
-
-**Next:** [Reasoning & RL with Verifiable Rewards](reasoning-rl.md)

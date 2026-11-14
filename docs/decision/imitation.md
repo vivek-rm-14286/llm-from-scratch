@@ -227,5 +227,3 @@ So the standard LLM recipe is the same as the robotics recipe: **behavior-clone 
 - Chen et al., [Decision Transformer: Reinforcement Learning via Sequence Modeling](https://arxiv.org/abs/2106.01345) (2021).
 - Zhao et al., [Learning Fine-Grained Bimanual Manipulation with Low-Cost Hardware](https://arxiv.org/abs/2304.13705) (2023, ACT / action chunking).
 - Ouyang et al., [Training language models to follow instructions with human feedback](https://arxiv.org/abs/2203.02155) (2022, InstructGPT).
-
-**Next:** [System 1 & System 2 Models](system-one.md)

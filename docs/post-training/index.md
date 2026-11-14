@@ -206,5 +206,3 @@ For a small model (say 0.5B to 3B) on a single GPU:
 - Tunstall et al., *Zephyr: Direct Distillation of LM Alignment* - [arXiv:2310.16944](https://arxiv.org/abs/2310.16944)
 - Nathan Lambert, *RLHF Book* - [rlhfbook.com](https://rlhfbook.com)
 - Hugging Face TRL docs - [huggingface.co/docs/trl](https://huggingface.co/docs/trl)
-
-**Next:** [Supervised Fine-Tuning (SFT)](sft.md)

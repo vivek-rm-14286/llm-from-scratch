@@ -386,5 +386,3 @@ Selecting target modules by name, excluding anything under the vision tower, avo
 - Marafioti et al., [SmolVLM: Redefining small and efficient multimodal models](https://arxiv.org/abs/2504.05299), 2025
 - Radford et al., [Robust Speech Recognition via Large-Scale Weak Supervision (Whisper)](https://arxiv.org/abs/2212.04356), 2022
 - Hugging Face [Transformers image-text-to-text docs](https://huggingface.co/docs/transformers/tasks/image_text_to_text)
-
-**Next:** [Pretraining](../pretraining/index.md)

@@ -491,5 +491,3 @@ Most improvements come from data, not hyperparameters:
 - [TRL SFTTrainer documentation](https://huggingface.co/docs/trl/sft_trainer), [PEFT documentation](https://huggingface.co/docs/peft), [bitsandbytes](https://huggingface.co/docs/bitsandbytes).
 - [vLLM: OpenAI-compatible server](https://docs.vllm.ai/) and LoRA adapters; [llama.cpp](https://github.com/ggml-org/llama.cpp); [Ollama docs](https://github.com/ollama/ollama/tree/main/docs).
 - Google, [Site Reliability Engineering](https://sre.google/books/), chapters on incident management, for severity and escalation practice.
-
-Next: [Project 3: Build a Production RAG System](p3-rag.md)

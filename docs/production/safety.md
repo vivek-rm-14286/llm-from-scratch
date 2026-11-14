@@ -379,5 +379,3 @@ How you release matters as much as how you train, especially for open weights, w
 - Inan et al., [Llama Guard](https://arxiv.org/abs/2312.06674) (2023).
 - Mitchell et al., [Model Cards for Model Reporting](https://arxiv.org/abs/1810.03993) (2019).
 - [OWASP Top 10 for LLM Applications](https://owasp.org/www-project-top-10-for-large-language-model-applications/).
-
-**Next:** [Interpretability](interpretability.md)

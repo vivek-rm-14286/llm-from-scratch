@@ -464,5 +464,3 @@ Guardrails, red-teaming and abuse monitoring are covered in depth in [Safety, Re
 - Greshake et al., [Not what you've signed up for: Compromising Real-World LLM-Integrated Applications with Indirect Prompt Injection](https://arxiv.org/abs/2302.12173) (2023).
 - Anthropic, [Building effective agents](https://www.anthropic.com/research/building-effective-agents) (2024), on workflows vs agents and when to use each.
 - [Model Context Protocol specification and docs](https://modelcontextprotocol.io) and the [official Python SDK](https://github.com/modelcontextprotocol/python-sdk).
-
-Next: [Decision Models](../decision/index.md)

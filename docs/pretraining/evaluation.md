@@ -265,5 +265,3 @@ flowchart LR
 - Chen et al., *Evaluating Large Language Models Trained on Code* (HumanEval) - [arXiv:2107.03374](https://arxiv.org/abs/2107.03374)
 - Zheng et al., *Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena* - [arXiv:2306.05685](https://arxiv.org/abs/2306.05685)
 - Mirzadeh et al., *GSM-Symbolic* - [arXiv:2410.05229](https://arxiv.org/abs/2410.05229)
-
-**Next:** [Post-training](../post-training/index.md)

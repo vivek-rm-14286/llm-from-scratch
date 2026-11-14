@@ -474,5 +474,3 @@ The OpenAI-compatible server equivalent is `vllm serve <base> --enable-lora --lo
 - vLLM LoRA adapters docs - [docs.vllm.ai](https://docs.vllm.ai)
 
 Put it into practice in [Project 2: Fine-tune an Open-Weight Model](../projects/p2-finetune.md).
-
-**Next:** [Continued Pretraining & Model Merging](merging-continued-pretraining.md)

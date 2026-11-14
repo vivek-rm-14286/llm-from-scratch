@@ -350,5 +350,3 @@ Copy this into your repo and check it off before launch.
 - [OpenTelemetry documentation](https://opentelemetry.io/docs/).
 - [Google SRE Book: Postmortem Culture](https://sre.google/sre-book/postmortem-culture/).
 - [Choose a License](https://choosealicense.com/) and the [Open Source Initiative licence list](https://opensource.org/licenses).
-
-**Next:** [Projects](../projects/index.md)

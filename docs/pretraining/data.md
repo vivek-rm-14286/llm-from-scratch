@@ -436,5 +436,3 @@ main concept in the extract. Use one worked example. Do not mention the extract.
 - Xie et al., *DoReMi: Optimizing Data Mixtures Speeds Up Language Model Pretraining* - [arXiv:2305.10429](https://arxiv.org/abs/2305.10429)
 - Hugging Face `datatrove` - [github.com/huggingface/datatrove](https://github.com/huggingface/datatrove)
 - `datasketch` docs - [ekzhu.com/datasketch](https://ekzhu.com/datasketch/)
-
-**Next:** [The Training Loop](training.md)

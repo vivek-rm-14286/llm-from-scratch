@@ -324,5 +324,3 @@ Return JSON: {"claims": [{"claim": "...", "supported": true|false}], "faithfulne
 - Anthropic, [Introducing Contextual Retrieval](https://www.anthropic.com/news/contextual-retrieval) (2024).
 - Greshake et al., [Not what you've signed up for: Compromising Real-World LLM-Integrated Applications with Indirect Prompt Injection](https://arxiv.org/abs/2302.12173) (2023).
 - [Qdrant hybrid queries documentation](https://qdrant.tech/documentation/concepts/hybrid-queries/).
-
-Next: [Applications: From Model to Product](../applications/index.md)

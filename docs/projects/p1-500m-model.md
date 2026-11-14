@@ -729,5 +729,3 @@ Other ideas: swap AdamW for Muon on the matrix parameters, add QK-norm and compa
 - Su et al., [RoFormer (RoPE)](https://arxiv.org/abs/2104.09864); Ainslie et al., [GQA](https://arxiv.org/abs/2305.13245); Shazeer, [GLU Variants Improve Transformer](https://arxiv.org/abs/2002.05202); Zhang & Sennrich, [RMSNorm](https://arxiv.org/abs/1910.07467)
 - Rafailov et al., [Direct Preference Optimization](https://arxiv.org/abs/2305.18290); Hinton et al., [Distilling the Knowledge in a Neural Network](https://arxiv.org/abs/1503.02531)
 - Docs: [PyTorch DDP](https://pytorch.org/docs/stable/notes/ddp.html), [`torch.compile`](https://pytorch.org/docs/stable/generated/torch.compile.html), [HF `tokenizers`](https://huggingface.co/docs/tokenizers), [lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness)
-
-**Next:** [Project 2: Fine-tune an Open-Weight Model](p2-finetune.md)

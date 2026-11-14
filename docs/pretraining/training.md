@@ -630,5 +630,3 @@ The default config is a ~124M-parameter model at 524K tokens per step. On a sing
 - Wortsman et al., *Small-scale proxies for large-scale Transformer training instabilities* - [arXiv:2309.14322](https://arxiv.org/abs/2309.14322)
 - Karpathy, nanoGPT - [github.com/karpathy/nanoGPT](https://github.com/karpathy/nanoGPT)
 - PyTorch docs: [torch.compile](https://pytorch.org/docs/stable/generated/torch.compile.html), [scaled_dot_product_attention](https://pytorch.org/docs/stable/generated/torch.nn.functional.scaled_dot_product_attention.html)
-
-**Next:** [Distributed Training](distributed.md)

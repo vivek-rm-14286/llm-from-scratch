@@ -509,5 +509,3 @@ Be skeptical, including of your own results:
 - Zou et al., [Representation Engineering](https://arxiv.org/abs/2310.01405) (2023).
 - Arditi et al., [Refusal in Language Models Is Mediated by a Single Direction](https://arxiv.org/abs/2406.11717) (2024).
 - [TransformerLens](https://github.com/TransformerLensOrg/TransformerLens), [nnsight](https://nnsight.net/), [SAELens](https://github.com/jbloomAus/SAELens).
-
-**Next:** [LLMOps: Shipping & Operating Models](llmops.md)

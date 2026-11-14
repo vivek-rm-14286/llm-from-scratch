@@ -574,5 +574,3 @@ Build the test set from **real traffic**, stratified so that rare but important 
 - Inan et al., [Llama Guard: LLM-based Input-Output Safeguard for Human-AI Conversations](https://arxiv.org/abs/2312.06674) (2023).
 - Geifman & El-Yaniv, [Selective Classification for Deep Neural Networks](https://arxiv.org/abs/1705.08500) (2017).
 - [scikit-learn: probability calibration](https://scikit-learn.org/stable/modules/calibration.html).
-
-**Next:** [Safety & Production](../production/index.md)

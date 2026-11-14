@@ -398,5 +398,3 @@ def check_citations(answer: str, n_sources: int) -> dict:
 - Liu et al., [Lost in the Middle: How Language Models Use Long Contexts](https://arxiv.org/abs/2307.03172) (2023).
 - Muennighoff et al., [MTEB: Massive Text Embedding Benchmark](https://arxiv.org/abs/2210.07316) (2022).
 - [Sentence-Transformers documentation](https://www.sbert.net/), [Qdrant documentation](https://qdrant.tech/documentation/), [pgvector](https://github.com/pgvector/pgvector), [FAISS](https://github.com/facebookresearch/faiss).
-
-Next: [Advanced RAG & Evaluation](advanced.md)

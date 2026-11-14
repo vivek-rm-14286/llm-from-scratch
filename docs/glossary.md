@@ -2,6 +2,7 @@
 
 Short definitions of the terms used across the site, in alphabetical order. Each entry links to the page where the idea is explained in depth.
 
+
 ## A
 
 Activation
@@ -16,8 +17,14 @@ Adam / AdamW
 Advantage
 :   In RL, how much better an action was than the policy's average action from that state: $A = Q(s,a) - V(s)$. Used to weight policy-gradient updates. See [DQN & PPO](decision/policy-methods.md).
 
+Agent
+:   A system where a model repeatedly observes, decides on an action (often a tool call), and sees the result, until the task is done or a step limit is hit. See [Agents & Tool Use](applications/agents.md).
+
 Alignment
 :   Making a model's behavior match human intent: helpful, honest, and safe. In practice done with SFT and preference optimization. See [Post-training](post-training/index.md).
+
+Arithmetic intensity
+:   FLOPs performed per byte moved from memory. Low-intensity operations (normalization, decode-time attention) are memory-bound, and high-intensity ones (large matmuls) are compute-bound. See [GPU Performance Engineering](pretraining/gpu-performance.md).
 
 Attention
 :   An operation where each position computes a weighted average of other positions' value vectors, with weights from query-key dot products. See [Embeddings & Attention](llm/attention.md).
@@ -56,6 +63,9 @@ Broadcasting
 
 ## C
 
+Canary deployment
+:   Sending a small share of live traffic to a new model version and comparing its metrics with the current version before a full rollout. See [LLMOps](production/llmops.md).
+
 Causal mask
 :   A mask that prevents each position in attention from seeing later positions, so the model cannot peek at the token it is predicting. See [Embeddings & Attention](llm/attention.md).
 
@@ -74,8 +84,17 @@ Chinchilla scaling
 Chunking
 :   Splitting documents into passages for embedding and retrieval in RAG. See [RAG Fundamentals](rag/fundamentals.md).
 
+CLIP
+:   Contrastive Language-Image Pretraining: an image encoder and a text encoder trained so matching image-caption pairs have similar embeddings. CLIP-style encoders are the vision tower in many VLMs. See [Multimodal Models](llm/multimodal.md).
+
+Constrained decoding
+:   Masking the logits at each step so only tokens allowed by a grammar or JSON schema can be sampled. The output is valid by construction. See [Prompt & Context Engineering](applications/prompting.md).
+
 Context window
 :   The maximum number of tokens a model can attend to at once.
+
+Continued pretraining
+:   Further next-token training of an existing base model on domain data, usually mixed with general data (replay) to limit forgetting. See [Continued Pretraining & Model Merging](finetuning/merging-continued-pretraining.md).
 
 Cosine similarity
 :   The dot product of two vectors divided by their lengths. The standard way to compare embeddings. See [Math](foundations/math.md#vectors-and-the-dot-product).
@@ -84,6 +103,9 @@ Cross-entropy
 :   The loss $-\log q(y)$ for the correct class $y$; the training objective of language models. See [Math](foundations/math.md#cross-entropy).
 
 ## D
+
+DARE
+:   Drop And REscale: randomly zeroing a fraction p of a task vector's entries and scaling the rest by 1/(1-p) before merging, to reduce interference. See [Continued Pretraining & Model Merging](finetuning/merging-continued-pretraining.md).
 
 Data parallelism (DDP)
 :   Training with a copy of the model on each GPU, each processing different data, and averaging gradients. See [Distributed Training](pretraining/distributed.md).
@@ -114,14 +136,17 @@ Einsum
 Embedding
 :   A learned vector representing a discrete item (a token) or a dense vector representing a whole text for retrieval. See [Embeddings & Attention](llm/attention.md) and [RAG Fundamentals](rag/fundamentals.md).
 
+Encoder-decoder
+:   A transformer with a bidirectional encoder over the input and an autoregressive decoder that attends to it through cross-attention, as in T5 and Whisper. See [Architecture Families](llm/architecture-families.md).
+
 Entropy
 :   The expected surprise of a distribution, $-\sum p \log p$. Used as an exploration bonus in RL. See [Math](foundations/math.md#entropy).
 
-Epoch
-:   One full pass over the training dataset.
-
 Episode
 :   One run of an RL agent in an environment from start to termination. See [RL Basics](decision/rl-basics.md).
+
+Epoch
+:   One full pass over the training dataset.
 
 ## F
 
@@ -137,13 +162,22 @@ FlashAttention
 FLOPs
 :   Floating-point operations. Training a dense transformer costs roughly $6ND$ FLOPs. See [Scaling Laws & Compute](llm/scaling-laws.md).
 
+FP8
+:   8-bit floating-point formats: E4M3 (more precision, used for weights and activations) and E5M2 (more range, used for gradients). Supported by tensor cores on recent GPUs for faster training and inference. See [GPU Performance Engineering](pretraining/gpu-performance.md).
+
 FSDP
 :   Fully Sharded Data Parallel: data parallelism that also shards parameters, gradients, and optimizer state across GPUs. See [Distributed Training](pretraining/distributed.md).
+
+Function calling
+:   A model emitting a structured tool call (a tool name plus JSON arguments) instead of text. The application runs the tool and returns the result to the model. Also called tool calling. See [Agents & Tool Use](applications/agents.md).
 
 ## G
 
 GELU
 :   Gaussian Error Linear Unit, a smooth ReLU-like activation used in GPT-2 and BERT. See [Neural Networks](foundations/neural-networks.md#activation-functions).
+
+GQA (grouped-query attention)
+:   Attention where several query heads share one key/value head, shrinking the KV cache. See [Modern Architectures](llm/modern-architectures.md).
 
 Gradient
 :   The vector of partial derivatives of a function; it points in the direction of steepest increase. See [Math](foundations/math.md#partial-derivatives-and-gradients).
@@ -154,11 +188,11 @@ Gradient accumulation
 Gradient clipping
 :   Rescaling gradients when their norm exceeds a threshold, to prevent destabilizing updates.
 
-GQA (grouped-query attention)
-:   Attention where several query heads share one key/value head, shrinking the KV cache. See [Modern Architectures](llm/modern-architectures.md).
-
 GRPO
 :   Group Relative Policy Optimization: a PPO-style method that estimates advantages by comparing several sampled answers to the same prompt, without a value network. See [Reasoning & RL](post-training/reasoning-rl.md).
+
+Guardrail
+:   A check outside the model that filters or validates inputs and outputs, such as PII redaction, a safety classifier, or schema validation. See [Safety, Red-Teaming & Guardrails](production/safety.md).
 
 ## H
 
@@ -185,10 +219,21 @@ Initialization
 Instruction tuning
 :   Supervised fine-tuning on instruction-response pairs so a base model follows instructions. See [SFT](post-training/sft.md).
 
+## J
+
+Jailbreak
+:   An input crafted to make a model ignore its safety training and produce content it would normally refuse. See [Safety, Red-Teaming & Guardrails](production/safety.md).
+
 ## K
+
+Kernel fusion
+:   Combining several GPU operations into one kernel so intermediate results stay in fast on-chip memory instead of making round trips to HBM. See [GPU Performance Engineering](pretraining/gpu-performance.md).
 
 KL divergence
 :   A measure of how one probability distribution differs from another; asymmetric and non-negative. Used as a penalty in RLHF and PPO. See [Math](foundations/math.md#kl-divergence).
+
+Knowledge distillation
+:   Training a smaller student model to match a larger teacher's output distribution (soft targets) or generations. This is how many strong SLMs are built. See [Distillation & Synthetic Data](post-training/distillation-synthetic-data.md).
 
 KV cache
 :   Stored keys and values for past tokens during generation, so each new token does not recompute them. See [Sampling, KV Cache & Quantization](inference/inference.md).
@@ -201,6 +246,15 @@ LayerNorm
 Learning rate
 :   The step size of gradient descent; the most important hyperparameter. See [Neural Networks](foundations/neural-networks.md#learning-rate-schedules).
 
+Linear probe
+:   A linear classifier trained on frozen hidden states to test whether a concept is linearly decodable from them. See [Interpretability](production/interpretability.md).
+
+LLMOps
+:   The practices for shipping and operating LLM systems: versioning, eval gates in CI, staged rollout, observability, cost control, and incident response. See [LLMOps](production/llmops.md).
+
+Logit lens
+:   Applying the final norm and unembedding to intermediate hidden states, to see which tokens each layer is already predicting. See [Interpretability](production/interpretability.md).
+
 Logits
 :   Raw, unnormalized scores output by a model before softmax. See [Math](foundations/math.md#softmax).
 
@@ -212,8 +266,17 @@ Loss function
 
 ## M
 
+Mamba
+:   A selective state space model: a recurrent layer whose dynamics depend on the input, with linear-time training and constant-memory inference per token. See [Architecture Families](llm/architecture-families.md).
+
 Markov decision process (MDP)
 :   The formal RL setting: states, actions, transition probabilities, rewards, and a discount factor. See [RL Basics](decision/rl-basics.md).
+
+Masked language model
+:   A model trained to predict randomly masked tokens using context from both sides, as in BERT. Good for embeddings and classification, not for open-ended generation. See [Architecture Families](llm/architecture-families.md).
+
+MCP
+:   Model Context Protocol: an open protocol through which servers expose tools, resources and prompts that any compatible client or agent can use. See [Agents & Tool Use](applications/agents.md).
 
 MFU (model FLOPs utilization)
 :   Achieved training FLOP/s divided by the hardware's peak. A measure of training efficiency. See [Setup](start/setup.md#compute-and-time).
@@ -226,6 +289,9 @@ Mixture of experts (MoE)
 
 MLP (multi-layer perceptron)
 :   A stack of linear layers with nonlinearities between them. Each transformer block contains one (the FFN). See [Neural Networks](foundations/neural-networks.md#from-perceptron-to-mlp).
+
+Model merging
+:   Combining the weights of several fine-tuned models into one without further training, using methods such as linear averaging, SLERP, task arithmetic, TIES or DARE. See [Continued Pretraining & Model Merging](finetuning/merging-continued-pretraining.md).
 
 Momentum
 :   An optimizer technique that accumulates an exponential moving average of gradients to smooth and accelerate updates.
@@ -242,6 +308,9 @@ Normalization
 :   Layers (BatchNorm, LayerNorm, RMSNorm) that re-standardize activations to stabilize training.
 
 ## O
+
+Online softmax
+:   Computing softmax in one streaming pass by keeping a running maximum and a rescaled running sum. This is the trick that lets FlashAttention process attention in tiles. See [GPU Performance Engineering](pretraining/gpu-performance.md).
 
 Optimizer state
 :   Per-parameter values an optimizer stores between steps, such as Adam's moments. Often larger than the weights themselves. See [Setup](start/setup.md#training-memory).
@@ -275,6 +344,9 @@ Pre-norm
 Pretraining
 :   Training a model from random initialization on a large unlabeled corpus with next-token prediction. See [Pretraining](pretraining/index.md).
 
+Prompt injection
+:   Instructions planted in input the model reads, such as a user message, a retrieved document or a tool output, that try to override the developer's instructions. Indirect injection through RAG and tools is the hardest kind to defend. See [Safety, Red-Teaming & Guardrails](production/safety.md).
+
 ## Q
 
 Q-value
@@ -291,8 +363,14 @@ Quantization
 RAG (retrieval-augmented generation)
 :   Retrieving relevant documents and adding them to the prompt so the model answers from them. See [RAG](rag/index.md).
 
+ReAct
+:   A prompting and agent pattern that interleaves reasoning steps with actions (tool calls) and their observations. See [Agents & Tool Use](applications/agents.md).
+
 Recall@k
 :   The fraction of relevant documents that appear in the top $k$ retrieved results. See [Advanced RAG & Evaluation](rag/advanced.md).
+
+Red-teaming
+:   Deliberately attacking your own system, manually and automatically, to find failures before users do. Results are often reported as attack success rate. See [Safety, Red-Teaming & Guardrails](production/safety.md).
 
 Reinforcement learning (RL)
 :   Learning to act by trial and error to maximize cumulative reward. See [RL Basics](decision/rl-basics.md).
@@ -321,11 +399,17 @@ RLVR
 RMSNorm
 :   Normalization by the root mean square of features, without mean subtraction. Used by Llama, Qwen, Gemma. See [Neural Networks](foundations/neural-networks.md#normalization-and-residual-connections).
 
+Roofline model
+:   A plot of attainable FLOP/s against arithmetic intensity, bounded by memory bandwidth on the left and peak compute on the right. It tells you which limit a kernel hits. See [GPU Performance Engineering](pretraining/gpu-performance.md).
+
 RoPE (rotary position embedding)
 :   Encoding position by rotating query and key vectors by position-dependent angles. See [Modern Architectures](llm/modern-architectures.md).
 
 Routing model
 :   A small, fast model that decides which tool, model, or queue should handle an input. See [Routing & Classification](decision/routing-models.md).
+
+RWKV
+:   A recurrent architecture with transformer-like parallel training and RNN-like constant-memory inference, in the linear-attention family. See [Architecture Families](llm/architecture-families.md).
 
 ## S
 
@@ -344,22 +428,40 @@ SFT (supervised fine-tuning)
 SGD
 :   Stochastic gradient descent: gradient descent using mini-batch gradient estimates. See [Neural Networks](foundations/neural-networks.md#optimizers).
 
+SLERP
+:   Spherical linear interpolation between two weight vectors, which preserves their norm better than plain averaging. A common way to merge two models. See [Continued Pretraining & Model Merging](finetuning/merging-continued-pretraining.md).
+
 SLM (small language model)
 :   A language model small enough to run cheaply or on-device, roughly from tens of millions to a few billion parameters. See [Modern Architectures & SLM Design](llm/modern-architectures.md).
 
 Softmax
 :   The function that turns logits into a probability distribution, $e^{z_i}/\sum_j e^{z_j}$. See [Math](foundations/math.md#softmax).
 
+Sparse autoencoder
+:   An autoencoder with a wide, sparse hidden layer trained on a model's activations, to break superposed features into more interpretable directions. See [Interpretability](production/interpretability.md).
+
 Special tokens
 :   Reserved tokens such as beginning-of-sequence, end-of-sequence, and chat role markers. See [Tokenization](llm/tokenization.md).
 
+State space model
+:   A sequence layer based on a linear recurrence over a hidden state, computable as a recurrence or a convolution. S4 and Mamba are examples. See [Architecture Families](llm/architecture-families.md).
+
+Steering vector
+:   A direction added to a model's hidden states at inference time to push its behavior, for example toward a style or concept, without changing weights. See [Interpretability](production/interpretability.md).
+
 SwiGLU
 :   A gated feed-forward variant, $(\text{SiLU}(xW_1) \odot xW_3)W_2$, used in most modern LLMs. See [Neural Networks](foundations/neural-networks.md#activation-functions).
+
+Synthetic data
+:   Training data generated by models, for example instructions, answers or textbook-style text, then filtered by verification or judges. Central to modern SLM training. See [Distillation & Synthetic Data](post-training/distillation-synthetic-data.md).
 
 System 1 / System 2
 :   Fast, reactive decision-making versus slow, deliberate reasoning; used here to contrast small reactive policies with reasoning models. See [System 1 & System 2 Models](decision/system-one.md).
 
 ## T
+
+Task vector
+:   The difference between fine-tuned and base weights. Adding, scaling or combining task vectors is the basis of task arithmetic merging. See [Continued Pretraining & Model Merging](finetuning/merging-continued-pretraining.md).
 
 Temperature
 :   A divisor applied to logits before softmax; lower is more deterministic, higher more random. See [Math](foundations/math.md#temperature).
@@ -373,6 +475,9 @@ Tensor parallelism
 Throughput
 :   Work done per unit time, e.g. training tokens per second or generated tokens per second.
 
+TIES
+:   A merging method that trims small task-vector entries, elects a sign per parameter, and averages only the entries that agree with it. See [Continued Pretraining & Model Merging](finetuning/merging-continued-pretraining.md).
+
 Token
 :   The unit of text a model reads and writes: a word, word piece, or byte sequence from the tokenizer's vocabulary. See [Tokenization](llm/tokenization.md).
 
@@ -384,6 +489,9 @@ Top-k / top-p sampling
 
 Transformer
 :   The architecture of attention and MLP blocks with residual connections underlying modern language models. See [The Transformer](llm/transformer.md).
+
+Triton
+:   A Python-embedded language for writing GPU kernels at the block level. It is easier than CUDA and is used by torch.compile to generate fused kernels. See [GPU Performance Engineering](pretraining/gpu-performance.md).
 
 ## V
 
@@ -398,6 +506,12 @@ Vanishing gradients
 
 Vector database
 :   A store optimized for nearest-neighbor search over embeddings, such as Qdrant. See [RAG Fundamentals](rag/fundamentals.md).
+
+Vision Transformer (ViT)
+:   A transformer applied to an image split into fixed-size patches, each linearly embedded as a token. See [Multimodal Models](llm/multimodal.md).
+
+VLM
+:   Vision-language model: a language model that also takes images, usually through a vision encoder plus a projector that maps image features into the LLM's embedding space. See [Multimodal Models](llm/multimodal.md).
 
 Vocabulary
 :   The set of all tokens a tokenizer can produce; its size $V$ sets the output layer width.
@@ -415,8 +529,8 @@ Weight tying
 
 ## Z
 
-Zero-shot
-:   Performing a task from instructions alone, with no examples in the prompt.
-
 ZeRO
 :   A family of techniques that shard optimizer state, gradients, and parameters across data-parallel GPUs to save memory. See [Distributed Training](pretraining/distributed.md).
+
+Zero-shot
+:   Performing a task from instructions alone, with no examples in the prompt.

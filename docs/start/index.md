@@ -35,6 +35,8 @@ flowchart LR
     PT --> FT[Fine-tuning]
     FT --> I[Inference]
     I --> R[RAG]
+    R --> AP[Applications]
+    AP --> SP[Safety & Production]
     F --> D[Decision Models]
     P -.-> P1["Project 1: 500M SLM"]
     FT -.-> P2["Project 2: QLoRA fine-tune"]
@@ -50,19 +52,19 @@ flowchart LR
 
 -   **[Language Models](../llm/index.md)**
 
-    Tokenization, embeddings, attention, the transformer line by line, modern architecture choices (RoPE, GQA, SwiGLU, RMSNorm), and scaling laws.
+    Tokenization, embeddings, attention, the transformer line by line, modern architecture choices (RoPE, GQA, SwiGLU, RMSNorm), scaling laws, other architecture families (BERT, T5, Mamba, hybrids, diffusion LMs), and multimodal models.
 
 -   **[Pretraining](../pretraining/index.md)**
 
-    Data pipelines, the training loop at scale, mixed precision, distributed training, and how to evaluate a base model.
+    Data pipelines, the training loop at scale, mixed precision, distributed training, GPU performance engineering, and how to evaluate a base model.
 
 -   **[Post-training](../post-training/index.md)**
 
-    Turning a base model into an assistant: supervised fine-tuning, preference optimization (RLHF, DPO), and reinforcement learning with verifiable rewards for reasoning.
+    Turning a base model into an assistant: supervised fine-tuning, preference optimization (RLHF, DPO), reinforcement learning with verifiable rewards for reasoning, and distillation and synthetic data.
 
 -   **[Fine-tuning](../finetuning/index.md)**
 
-    Adapting an existing open-weight model to your task cheaply with LoRA and QLoRA.
+    Adapting an existing open-weight model to your task cheaply with LoRA and QLoRA, continued pretraining on domain data, and model merging.
 
 -   **[Inference](../inference/index.md)**
 
@@ -71,6 +73,14 @@ flowchart LR
 -   **[RAG](../rag/index.md)**
 
     Retrieval-augmented generation: chunking, embeddings, vector search, hybrid retrieval, reranking, and how to evaluate the whole system.
+
+-   **[Applications](../applications/index.md)**
+
+    Prompt and context engineering, structured output and constrained decoding, agents, tool use and MCP.
+
+-   **[Safety & Production](../production/index.md)**
+
+    Red-teaming, prompt injection, guardrails, interpretability, and LLMOps: evals in CI, observability, cost, and licensing.
 
 -   **[Decision Models](../decision/index.md)**
 
@@ -122,7 +132,7 @@ Keep one plain-text or markdown file per project. Write down every run: the conf
 
 ### Time budget
 
-The [roadmap](roadmap.md) assumes roughly 8-12 hours per week for about 18 weeks. If you have more time, compress it. If you have less, follow the same order and stretch it out. Skipping Foundations to get to transformers faster usually costs more time later, when a bug in a training loop turns out to be a misunderstanding of gradients.
+The [roadmap](roadmap.md) assumes roughly 8-12 hours per week for about 21 weeks. If you have more time, compress it. If you have less, follow the same order and stretch it out. Skipping Foundations to get to transformers faster usually costs more time later, when a bug in a training loop turns out to be a misunderstanding of gradients.
 
 !!! tip "If you only have a weekend"
     Read [Math You Actually Need](../foundations/math.md) sections on softmax and cross-entropy, then [Embeddings & Attention](../llm/attention.md) and [The Transformer, Line by Line](../llm/transformer.md). You will come away understanding what a language model computes, even if you have not trained one yet.

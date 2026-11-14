@@ -1,6 +1,6 @@
 # Learning Roadmap
 
-This is an 18-week, part-time plan that takes you through every section of the site and all four projects. It assumes about **8-12 hours a week**: two or three weekday evenings of reading and small experiments, plus one longer weekend block for project work. Each week lists the pages to read, what to build, and a short checklist so you know when you are done.
+This is a 21-week, part-time plan that takes you through every section of the site and all four projects. It assumes about **8-12 hours a week**: two or three weekday evenings of reading and small experiments, plus one longer weekend block for project work. Each week lists the pages to read, what to build, and a short checklist so you know when you are done.
 
 !!! abstract "What you'll learn"
     - The order to read the site in, and why that order matters
@@ -10,7 +10,7 @@ This is an 18-week, part-time plan that takes you through every section of the s
 
 ## The path at a glance
 
-The plan has five phases. Projects sit at the end of the phase that teaches what they need. Project 4 is placed mid-course on purpose: it is a change of pace after the language-model phases, and it reuses Foundations directly.
+The plan has six phases. Projects sit at the end of the phase that teaches what they need. Project 4 is placed mid-course on purpose: it is a change of pace after the language-model phases, and it reuses Foundations directly.
 
 ```mermaid
 flowchart TD
@@ -22,6 +22,7 @@ flowchart TD
     D --> E["Phase 5: Post-training, Fine-tuning, Inference, RAG (weeks 13-18)"]
     E --> P2["Project 2: QLoRA incident triage"]
     E --> P3["Project 3: Support RAG copilot"]
+    E --> F["Phase 6: Applications, Safety & Production (weeks 19-21)"]
     P1 -.->|"runs in background"| E
 ```
 
@@ -84,6 +85,7 @@ Goal: you can write a GPT-style decoder from scratch and train a tiny one on a l
 ### Week 6: Modern architectures and scaling
 
 - Read [Modern Architectures & SLM Design](../llm/modern-architectures.md) and [Scaling Laws & Compute](../llm/scaling-laws.md).
+- Skim [Architecture Families & Beyond Transformers](../llm/architecture-families.md) and [Multimodal Models](../llm/multimodal.md). Come back to them in depth later.
 - Swap your tiny model to RMSNorm, RoPE, and SwiGLU. Compare loss curves at equal parameter count.
 
 - [ ] You can estimate training FLOPs with the `6 * N * D` rule
@@ -113,7 +115,7 @@ Goal: a 500M-parameter model pretraining on rented GPUs, with a loss curve you u
 
 ### Week 9: Distributed training and evaluation
 
-- Read [Distributed Training](../pretraining/distributed.md) and [Evaluation](../pretraining/evaluation.md).
+- Read [Distributed Training](../pretraining/distributed.md), [GPU Performance Engineering](../pretraining/gpu-performance.md), and [Evaluation](../pretraining/evaluation.md).
 - Make the script work with DDP (or FSDP). Add validation loss and a small downstream eval.
 
 - [ ] The script runs on 2+ GPUs and throughput scales close to linearly
@@ -165,7 +167,7 @@ Goal: you can take an open-weight model, adapt it to a real job, serve it, and g
 
 ### Week 14: Reasoning and LoRA
 
-- Read [Reasoning & RL with Verifiable Rewards](../post-training/reasoning-rl.md), [Fine-tuning](../finetuning/index.md), and [LoRA & QLoRA](../finetuning/lora-qlora.md).
+- Read [Reasoning & RL with Verifiable Rewards](../post-training/reasoning-rl.md), [Distillation & Synthetic Data](../post-training/distillation-synthetic-data.md), [Fine-tuning](../finetuning/index.md), and [LoRA & QLoRA](../finetuning/lora-qlora.md).
 - Start [Project 2](../projects/p2-finetune.md): build and clean the incident-triage dataset, define the output schema, write the evaluation script first.
 
 - [ ] You have a held-out test set that the model never sees during training
@@ -175,6 +177,7 @@ Goal: you can take an open-weight model, adapt it to a real job, serve it, and g
 ### Week 15: Finish Project 2
 
 - Train the QLoRA adapter. Evaluate, inspect failures, iterate on data rather than hyperparameters first.
+- Read [Continued Pretraining & Model Merging](../finetuning/merging-continued-pretraining.md) and try merging two adapters.
 
 - [ ] The adapter beats the prompted baseline on your test set
 - [ ] You have read at least 30 model outputs by hand
@@ -197,7 +200,7 @@ Goal: you can take an open-weight model, adapt it to a real job, serve it, and g
 - [ ] You have a labeled set of questions with known relevant documents
 - [ ] You measure retrieval recall@k before touching the generator
 
-### Week 18: Finish Project 3 and wrap up
+### Week 18: Finish Project 3
 
 - Add hybrid search and reranking, citation of sources, and an "I don't know" path. Evaluate end to end.
 - Finish evaluating Project 1's final checkpoint.
@@ -205,6 +208,35 @@ Goal: you can take an open-weight model, adapt it to a real job, serve it, and g
 - [ ] The copilot cites the source for every answer
 - [ ] You have measured faithfulness and answer quality, not just retrieval
 - [ ] Project 1 has a final eval report and samples
+
+## Phase 6: Applications, Safety & Production (weeks 19-21)
+
+Goal: turn your models into applications that are safe and that you can operate.
+
+### Week 19: Prompting and agents
+
+- Read [Applications](../applications/index.md), [Prompt & Context Engineering](../applications/prompting.md), and [Agents & Tool Use](../applications/agents.md).
+- Wrap your Project 3 copilot and Project 2 model as tools in the from-scratch agent loop. Expose one of them as an MCP server.
+
+- [ ] Your Project 2 model always returns valid JSON with constrained decoding
+- [ ] The agent stops at its step limit and asks a human before irreversible actions
+
+### Week 20: Safety and interpretability
+
+- Read [Safety & Production](../production/index.md), [Safety, Red-Teaming & Guardrails](../production/safety.md), and [Interpretability](../production/interpretability.md).
+- Red-team your Project 3 copilot with indirect prompt injection planted in a document. Add guardrails, then measure attack success rate before and after.
+- Train a linear probe and run the logit lens on your Project 1 model.
+
+- [ ] You have an attack success rate measured on a fixed attack set
+- [ ] You can show one feature your Project 1 model represents linearly
+
+### Week 21: LLMOps and wrap-up
+
+- Read [LLMOps: Shipping & Operating Models](../production/llmops.md).
+- Put each project's eval suite in CI as a regression gate. Build a cost-per-1K-requests estimate for Projects 2 and 3.
+- Work through the production readiness checklist for one project.
+
+- [ ] Evals run automatically on every change, and a regression blocks the merge
 - [ ] All four projects have a short README: what you built, results, what you would do next
 
 ## Adjusting the plan

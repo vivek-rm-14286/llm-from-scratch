@@ -575,4 +575,4 @@ Build the test set from **real traffic**, stratified so that rare but important 
 - Geifman & El-Yaniv, [Selective Classification for Deep Neural Networks](https://arxiv.org/abs/1705.08500) (2017).
 - [scikit-learn: probability calibration](https://scikit-learn.org/stable/modules/calibration.html).
 
-**Next:** [Project 4: A Decision Model That Plays](../projects/p4-decision-model.md)
+**Next:** [Safety & Production](../production/index.md)

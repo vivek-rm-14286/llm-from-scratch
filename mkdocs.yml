@@ -57,20 +57,25 @@ nav:
       - The Transformer, Line by Line: llm/transformer.md
       - Modern Architectures & SLM Design: llm/modern-architectures.md
       - Scaling Laws & Compute: llm/scaling-laws.md
+      - Architecture Families & Beyond Transformers: llm/architecture-families.md
+      - Multimodal Models: llm/multimodal.md
   - Pretraining:
       - pretraining/index.md
       - Data Pipelines: pretraining/data.md
       - The Training Loop: pretraining/training.md
       - Distributed Training: pretraining/distributed.md
+      - GPU Performance Engineering: pretraining/gpu-performance.md
       - Evaluation: pretraining/evaluation.md
   - Post-training:
       - post-training/index.md
       - Supervised Fine-Tuning (SFT): post-training/sft.md
       - Preference Optimization (RLHF, DPO): post-training/preference.md
       - Reasoning & RL with Verifiable Rewards: post-training/reasoning-rl.md
+      - Distillation & Synthetic Data: post-training/distillation-synthetic-data.md
   - Fine-tuning:
       - finetuning/index.md
       - LoRA & QLoRA: finetuning/lora-qlora.md
+      - Continued Pretraining & Model Merging: finetuning/merging-continued-pretraining.md
   - Inference:
       - inference/index.md
       - Sampling, KV Cache & Quantization: inference/inference.md
@@ -78,6 +83,10 @@ nav:
       - rag/index.md
       - RAG Fundamentals: rag/fundamentals.md
       - Advanced RAG & Evaluation: rag/advanced.md
+  - Applications:
+      - applications/index.md
+      - Prompt & Context Engineering: applications/prompting.md
+      - Agents & Tool Use: applications/agents.md
   - Decision Models:
       - decision/index.md
       - Reinforcement Learning Basics: decision/rl-basics.md
@@ -85,6 +94,11 @@ nav:
       - Imitation Learning: decision/imitation.md
       - System 1 & System 2 Models: decision/system-one.md
       - Decision Models for Routing & Classification: decision/routing-models.md
+  - Safety & Production:
+      - production/index.md
+      - Safety, Red-Teaming & Guardrails: production/safety.md
+      - Interpretability: production/interpretability.md
+      - "LLMOps: Shipping & Operating Models": production/llmops.md
   - Projects:
       - projects/index.md
       - "1. Build a 500M SLM From Scratch": projects/p1-500m-model.md

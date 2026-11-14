@@ -75,6 +75,22 @@ hide:
 
     [:octicons-arrow-right-24: RAG](rag/index.md)
 
+-   :material-robot-outline:{ .lg .middle } **Build applications & agents**
+
+    ---
+
+    Prompt and context engineering, constrained decoding, tool use, MCP and agent loops.
+
+    [:octicons-arrow-right-24: Applications](applications/index.md)
+
+-   :material-shield-check:{ .lg .middle } **Ship it safely**
+
+    ---
+
+    Red-teaming, guardrails, prompt injection, interpretability, and LLMOps.
+
+    [:octicons-arrow-right-24: Safety & Production](production/index.md)
+
 -   :material-gamepad-variant:{ .lg .middle } **Make it decide & act**
 
     ---

@@ -352,7 +352,7 @@ class ShardLoader:
 loader = ShardLoader("data/fineweb_edu/train_*.bin", batch_size=8, seq_len=1024)
 ```
 
-Project 1's [`prepare_data.py`](../projects/p1-500m-model.md) follows the same layout with different names: it writes `<prefix>_train_00000.bin`, `<prefix>_train_00001.bin`, ... plus a single `<prefix>_val.bin` per source (the first tokens of each source, not a whole shard), and a `meta.json` that records the dtype, vocabulary size, end-of-text id, tokenizer path and token count per source so `train.py` does not have to guess them. The sketch here keeps one flat `train_*.bin` / `val_*.bin` scheme and no metadata file to stay short.
+Project 9's [`prepare_data.py`](../projects/slm-500m.md) follows the same layout with different names: it writes `<prefix>_train_00000.bin`, `<prefix>_train_00001.bin`, ... plus a single `<prefix>_val.bin` per source (the first tokens of each source, not a whole shard), and a `meta.json` that records the dtype, vocabulary size, end-of-text id, tokenizer path and token count per source so `train.py` does not have to guess them. The sketch here keeps one flat `train_*.bin` / `val_*.bin` scheme and no metadata file to stay short.
 
 Random-window sampling is simple and works well. Production loaders instead iterate deterministically through a pre-shuffled index so they can resume exactly and guarantee each token is seen once per epoch; the resume logic in [The Training Loop](training.md#checkpointing-and-resume) covers saving the RNG state either way.
 

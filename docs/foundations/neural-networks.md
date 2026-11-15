@@ -594,7 +594,7 @@ for s in [0, 500, 1000, 5000, 10000, 20000]:
 # for g in opt.param_groups: g["lr"] = lr_at(step)
 ```
 
-Common variants: a final LR of about 10% of the peak, and **warmup-stable-decay (WSD)** schedules that hold the peak constant for most of training and decay quickly at the end, which makes it easy to continue training from a mid-run checkpoint. [The Training Loop](../pretraining/training.md) shows how to choose these values for Project 1.
+Common variants: a final LR of about 10% of the peak, and **warmup-stable-decay (WSD)** schedules that hold the peak constant for most of training and decay quickly at the end, which makes it easy to continue training from a mid-run checkpoint. [The Training Loop](../pretraining/training.md) shows how to choose these values for Project 9.
 
 !!! tip "Finding a learning rate"
     For a new setup, try a short run at a few learning rates spaced by about 3x (for example 1e-4, 3e-4, 1e-3). Pick the largest that trains smoothly. If loss spikes or goes to `nan`, lower the LR or lengthen warmup and check that gradient clipping is on.

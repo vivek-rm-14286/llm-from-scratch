@@ -297,7 +297,7 @@ The Hugging Face PEFT library implements all of the above. Install: `pip install
 
     1. Freezes the base, casts every non-quantized fp16/bf16 parameter (norms, but also the embeddings and `lm_head`) to fp32 for stability, enables gradient checkpointing, and makes input embeddings produce grads so checkpointing works with a frozen base. The fp32 upcast of a 128k-vocabulary embedding and `lm_head` adds roughly 2 GB for an 8B model compared with the table below; if memory is tight, skip this helper and call `model.gradient_checkpointing_enable()` plus `model.enable_input_require_grads()` yourself.
 
-Training is then any normal loop or trainer. With **TRL 1.x** (API stable since 0.20) you can skip `get_peft_model` and pass the config directly; see [SFT](../post-training/sft.md#the-same-job-with-trl) for the full trainer setup. [Project 2](../projects/p2-finetune.md) runs this recipe end to end on a real task:
+Training is then any normal loop or trainer. With **TRL 1.x** (API stable since 0.20) you can skip `get_peft_model` and pass the config directly; see [SFT](../post-training/sft.md#the-same-job-with-trl) for the full trainer setup. [Project 6](../projects/incident-triage-finetune.md) runs this recipe end to end on a real task:
 
 ```python title="trl_qlora_sft.py"
 from datasets import load_dataset

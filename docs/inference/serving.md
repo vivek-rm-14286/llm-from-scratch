@@ -206,7 +206,7 @@ All of them expose the same OpenAI-compatible HTTP API (`/v1/chat/completions`),
 
 ## Serving one model three ways
 
-The walkthrough uses `Qwen/Qwen2.5-1.5B-Instruct` and a LoRA adapter directory `./my-adapter` (for example the output of [Project 2](../projects/p2-finetune.md)). Swap in your own model. Each route ends with the same check: a `curl` to the chat endpoint.
+The walkthrough uses `Qwen/Qwen2.5-1.5B-Instruct` and a LoRA adapter directory `./my-adapter` (for example the output of [Project 6](../projects/incident-triage-finetune.md)). Swap in your own model. Each route ends with the same check: a `curl` to the chat endpoint.
 
 !!! note "Not run for this page"
     The vLLM commands need a CUDA GPU, and the llama.cpp and Ollama commands need those tools installed. They follow each tool's documented interface but were not executed here; flags do change between releases, so check `--help` if one is rejected. The Python snippets later on this page were run.

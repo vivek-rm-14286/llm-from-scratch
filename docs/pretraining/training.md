@@ -74,7 +74,7 @@ where $\hat m, \hat v$ are bias-corrected. Values that almost every LM recipe (G
 | $\beta_2$ | **0.95** | Lower than the default 0.999. $v$ adapts faster to sudden gradient changes, which reduces loss spikes. |
 | $\epsilon$ | 1e-8 | Some use 1e-5 at very large scale; tiny values can amplify updates for parameters with near-zero $v$. |
 | Weight decay $\lambda$ | 0.1 | Applied to matrices only, **not** biases, norm gains, or (often) embeddings. |
-| Peak LR | ~6e-4 to 1.5e-3 for 125M-500M models at 0.25M-1M tokens per step (Project 1 uses 8e-4), falling to ~1.5e-4 to 3e-4 at multi-billion scale | Smaller models tolerate larger LRs. Sweep on a short run. |
+| Peak LR | ~6e-4 to 1.5e-3 for 125M-500M models at 0.25M-1M tokens per step (Project 9 uses 8e-4), falling to ~1.5e-4 to 3e-4 at multi-billion scale | Smaller models tolerate larger LRs. Sweep on a short run. |
 
 ```python
 def configure_optimizer(model, lr, weight_decay=0.1, betas=(0.9, 0.95), eps=1e-8):
@@ -592,7 +592,7 @@ if __name__ == "__main__":
     main()
 ```
 
-The default config is a ~124M-parameter model at 524K tokens per step. On a single H100, expect on the order of a few hundred thousand tokens per second with compile and bf16; 20,000 steps is about 10B tokens. Run `python train_gpt.py --tiny` first to check everything works on CPU in seconds. The [500M project](../projects/p1-500m-model.md) scales this up; Project 1 uses a separate, fuller script (its own `train.py`) with different flag names.
+The default config is a ~124M-parameter model at 524K tokens per step. On a single H100, expect on the order of a few hundred thousand tokens per second with compile and bf16; 20,000 steps is about 10B tokens. Run `python train_gpt.py --tiny` first to check everything works on CPU in seconds. The [500M project](../projects/slm-500m.md) scales this up; Project 9 uses a separate, fuller script (its own `train.py`) with different flag names.
 
 !!! warning "Common pitfalls"
     - **Forgetting to divide the loss by `grad_accum`.** Your effective LR silently scales with accumulation steps.

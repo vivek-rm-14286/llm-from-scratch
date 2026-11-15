@@ -254,7 +254,7 @@ flowchart LR
 
 ### A compact PPO in PyTorch
 
-This is a complete single-file PPO for any discrete-action Gymnasium environment. The [Project 4](../projects/p4-decision-model.md) trainer uses the same structure with a few additions (BC initialization, critic warmup, KL early stopping).
+This is a complete single-file PPO for any discrete-action Gymnasium environment. The [Project 4](../projects/game-agent.md) trainer uses the same structure with a few additions (BC initialization, critic warmup, KL early stopping).
 
 ```python title="ppo_cartpole.py"
 import gymnasium as gym

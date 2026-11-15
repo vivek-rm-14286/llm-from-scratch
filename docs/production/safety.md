@@ -309,14 +309,14 @@ def attack_success_rate(attacks, target, judge):
 - **Judge quality.** The judge decides what counts as success. Validate it against human labels, as in [LLM-as-judge pitfalls](../pretraining/evaluation.md#llm-as-judge-pitfalls).
 - **Always pair ASR with over-refusal.** A system that refuses everything has 0% ASR. Measure the refusal rate on a benign set that includes borderline-sounding requests, and report both numbers together.
 
-## Lab: red-team the Project 3 copilot
+## Lab: red-team the Project 5 copilot
 
-[Project 3](../projects/p3-rag.md) is a RAG copilot over product docs and support tickets with three access levels. It is a good target: tickets hold customer-written text, so indirect injection is realistic, and restricted documents give an attacker something to aim for. The project ships a red-team script, [`redteam.py`](https://github.com/vivek-rm-14286/llm-from-scratch/tree/main/code/p3_support_rag/redteam.py); the project page [walks through its output](../projects/p3-rag.md#9-red-team-it). This lab uses it to practice the loop from this page: plant, attack, measure, defend, measure again. Setup takes a few minutes and needs no GPU (see [the project's setup section](../projects/p3-rag.md#0-setup-and-the-one-minute-smoke-test)).
+[Project 5](../projects/support-rag.md) is a RAG copilot over product docs and support tickets with three access levels. It is a good target: tickets hold customer-written text, so indirect injection is realistic, and restricted documents give an attacker something to aim for. The project ships a red-team script, [`redteam.py`](https://github.com/vivek-rm-14286/llm-from-scratch/tree/main/code/support_rag/redteam.py); the project page [walks through its output](../projects/support-rag.md#9-red-team-it). This lab uses it to practice the loop from this page: plant, attack, measure, defend, measure again. Setup takes a few minutes and needs no GPU (see [the project's setup section](../projects/support-rag.md#0-setup-and-the-one-minute-smoke-test)).
 
 **Step 1. Run the fixed attack set with the fake model.**
 
 ```bash
-cd code/p3_support_rag
+cd code/support_rag
 python redteam.py --fake-llm
 ```
 
@@ -341,7 +341,7 @@ Check three things in the per-attack table. The planted item is in the top 5 for
 
 **Step 5. Defend, and pay for it.** Change `guardrails.py` to stop your new attacks. Re-run and report three numbers together: ASR with guardrails, golden questions refused, and clean chunks quarantined. A change that lowers the first by raising the other two is the over-refusal trade from [Measuring: attack success rate](#measuring-attack-success-rate), in miniature.
 
-**Step 6. Keep the set.** The attacks you added are now regression tests. The project's sample CI workflow runs `python redteam.py --fake-llm --max-asr 0.10` on every pull request and fails if an access leak appears or more attacks get through than before; see the [eval gate lab](llmops.md#lab-an-eval-gate-for-project-3).
+**Step 6. Keep the set.** The attacks you added are now regression tests. The project's sample CI workflow runs `python redteam.py --fake-llm --max-asr 0.10` on every pull request and fails if an access leak appears or more attacks get through than before; see the [eval gate lab](llmops.md#lab-an-eval-gate-for-project-5).
 
 Ten attacks are a teaching set. One attack is 10 points of ASR, so do not read small differences into it; real attack sets have hundreds of cases per category, and a fixed set only tells you about the attacks someone already thought of.
 

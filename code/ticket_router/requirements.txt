@@ -1,0 +1,9 @@
+# Tested with: Python 3.12, torch 2.15, transformers 5.23, sentence-transformers 6.3,
+# scikit-learn 1.9, numpy 2.5, matplotlib 3.11, pytest 9.2 (macOS, Apple M1 Pro, CPU).
+torch>=2.5
+transformers>=4.57   # the code passes dtype= (older releases call it torch_dtype=)
+sentence-transformers>=3.0
+scikit-learn>=1.4
+numpy>=1.26
+matplotlib>=3.8
+pytest>=8.0

@@ -204,7 +204,7 @@ L10H1: induction score 0.52
 mean loss, first copy 12.30  second copy 0.20
 ```
 
-Several heads in layers 5-7 put over 90% of their attention exactly on the induction offset, and the loss on the repeated half drops from about 12 nats (random guessing over a large vocabulary) to 0.2. This is the same experiment you can run on your own small models from [Project 1](../projects/p1-500m-model.md) at different checkpoints to watch induction heads form.
+Several heads in layers 5-7 put over 90% of their attention exactly on the induction offset, and the loss on the repeated half drops from about 12 nats (random guessing over a large vocabulary) to 0.2. This is the same experiment you can run on your own small models from [Project 9](../projects/slm-500m.md) at different checkpoints to watch induction heads form.
 
 ## Activation patching (causal tracing)
 

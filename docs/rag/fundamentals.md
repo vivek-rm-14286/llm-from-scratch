@@ -313,11 +313,11 @@ if __name__ == "__main__":
 1. BGE v1.5 recommends this instruction on short queries (not on passages). Other models use different prefixes; check the model card.
 2. A cheap version of "prefix the chunk with its context": the file name tells the embedder what document this text came from.
 
-Run it against any folder of markdown, for example the sample corpus in [Project 3](../projects/p3-rag.md):
+Run it against any folder of markdown, for example the sample corpus in [Project 5](../projects/support-rag.md):
 
 ```bash
 ollama pull qwen2.5:7b
-python mini_rag.py code/p3_support_rag/sample_data/docs "How do I silence alerts during maintenance?"
+python mini_rag.py code/support_rag/sample_data/docs "How do I silence alerts during maintenance?"
 ```
 
 Everything else in RAG is an improvement on one of these steps.
@@ -375,7 +375,7 @@ def check_citations(answer: str, n_sources: int) -> dict:
 
 ## Build it
 
-All three tasks run on a laptop CPU and need no LLM: they exercise embedding, chunking and search only. Start from `mini_rag.py` and `chunk_markdown.py` above, saved in the repository root, with `pip install sentence-transformers numpy openai`. The numbers below are for `BAAI/bge-small-en-v1.5` and the [Project 3](../projects/p3-rag.md) sample corpus as shipped (35 markdown files in `code/p3_support_rag/sample_data/docs`).
+All three tasks run on a laptop CPU and need no LLM: they exercise embedding, chunking and search only. Start from `mini_rag.py` and `chunk_markdown.py` above, saved in the repository root, with `pip install sentence-transformers numpy openai`. The numbers below are for `BAAI/bge-small-en-v1.5` and the [Project 5](../projects/support-rag.md) sample corpus as shipped (35 markdown files in `code/support_rag/sample_data/docs`).
 
 **1. Cosine similarity by hand.** Embed these three sentences with `normalize_embeddings=True` and compute the dot products yourself with numpy:
 
@@ -396,7 +396,7 @@ Expected: every vector has norm 1.000, a·b is about 0.79 and a·c is about 0.51
     # [1. 1. 1.] 0.791 0.506
     ```
 
-**2. Measure the 100-line retriever.** Index the sample docs with `MiniRAG.add_folder` and score its `search` against the project's golden set, `code/p3_support_rag/sample_data/golden.jsonl`. Use the questions with `"user_access": "public"` and a non-empty `relevant` list. Each `relevant` entry looks like `doc:alerting#maintenance-windows`; count a question as a hit when every document named there (`alerting`) is among the files of the top 5 results. Report the hit rate overall and per `type`.
+**2. Measure the 100-line retriever.** Index the sample docs with `MiniRAG.add_folder` and score its `search` against the project's golden set, `code/support_rag/sample_data/golden.jsonl`. Use the questions with `"user_access": "public"` and a non-empty `relevant` list. Each `relevant` entry looks like `doc:alerting#maintenance-windows`; count a question as a hit when every document named there (`alerting`) is among the files of the top 5 results. Report the hit rate overall and per `type`.
 
 Expected: 101 chunks, 65 questions, hit rate@5 of 0.72 overall. By type: `keyword` 1.00, `identifier` 0.74, `paraphrase` 0.37. The retriever looks perfect if you only ask questions that reuse the documents' words.
 
@@ -407,7 +407,7 @@ Expected: 101 chunks, 65 questions, hit rate@5 of 0.72 overall. By type: `keywor
     from mini_rag import MiniRAG
 
     def hit_rate(rag, k=5):
-        golden = [json.loads(line) for line in open("code/p3_support_rag/sample_data/golden.jsonl")]
+        golden = [json.loads(line) for line in open("code/support_rag/sample_data/golden.jsonl")]
         by_type = {}
         for g in golden:
             if g["user_access"] != "public" or not g["relevant"]:
@@ -419,7 +419,7 @@ Expected: 101 chunks, 65 questions, hit rate@5 of 0.72 overall. By type: `keywor
         return round(float(overall), 2), {t: round(float(np.mean(h)), 2) for t, h in by_type.items()}
 
     rag = MiniRAG()
-    rag.add_folder("code/p3_support_rag/sample_data/docs")
+    rag.add_folder("code/support_rag/sample_data/docs")
     print(len(rag.texts), hit_rate(rag))
     ```
 
@@ -443,7 +443,7 @@ Expected: 252 chunks and a hit rate@5 of 0.82 (`paraphrase` rises from 0.37 to 0
             self.vectors = self.model.encode(self.texts, normalize_embeddings=True).astype(np.float32)
 
     rag = HeadingRAG()
-    rag.add_folder("code/p3_support_rag/sample_data/docs")
+    rag.add_folder("code/support_rag/sample_data/docs")
     print(len(rag.texts), hit_rate(rag))
     order = [i for _, i in rag.search("What does NM-4012 mean?", len(rag.texts))]
     target = next(i for i, t in enumerate(rag.texts) if "NM-4012:" in t)

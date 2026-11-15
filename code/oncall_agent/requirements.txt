@@ -1,0 +1,5 @@
+# Tested with: Python 3.12.8, mcp 2.3.0, pydantic 2.14.3, pytest 9.2.0 (macOS, Apple M1 Pro, CPU).
+# The agent, the fake LLMs and the evaluation need only pydantic. The LLM client uses the standard library.
+pydantic>=2.6
+mcp>=2.0,<3          # MCPServer and the in-memory Client (step 6 and tests/test_mcp.py)
+pytest>=8.0

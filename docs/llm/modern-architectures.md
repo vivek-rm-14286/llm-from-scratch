@@ -430,7 +430,7 @@ These are the models' published configs (all use RMSNorm, RoPE, SwiGLU, no MLP b
 | SmolLM2-1.7B | 24 | 2048 | 32 / 32 | 8192 | 49,152 | Plain MHA |
 | Llama 3.2 3B | 28 | 3072 | 24 / 8 | 8192 | 128,256 | |
 
-Notice the spread: Llama 3.2 1B is relatively shallow and wide (good GPU efficiency, lots of embedding parameters from the 128k vocab), while SmolLM2-135M goes deep and thin. Both work; what they share is GQA, tying, and very long training runs. For the 500M model in [Project 1](../projects/p1-500m-model.md), a reasonable starting point is about 24-32 layers, $d$ around 1024-1280, GQA with 4:1 or so, a 32k-50k vocabulary, and tied embeddings.
+Notice the spread: Llama 3.2 1B is relatively shallow and wide (good GPU efficiency, lots of embedding parameters from the 128k vocab), while SmolLM2-135M goes deep and thin. Both work; what they share is GQA, tying, and very long training runs. For the 500M model in [Project 9](../projects/slm-500m.md), a reasonable starting point is about 24-32 layers, $d$ around 1024-1280, GQA with 4:1 or so, a 32k-50k vocabulary, and tied embeddings.
 
 !!! warning "Common pitfalls"
     - **Applying RoPE to V** or after the attention softmax. It goes on Q and K only, before the dot product.

@@ -34,7 +34,7 @@ Add these one at a time, and keep each only if your evaluation numbers improve.
 
 ## Hybrid search: BM25 + dense
 
-Dense embeddings capture meaning but are fuzzy on exact tokens. Ask about `ERR_4021` or `--max-retries` and an embedder may happily return a passage about `ERR_4012`. Classic keyword search gets exact matches right and paraphrases wrong. They fail on different queries, so combining them is one of the most reliable improvements you can make. [Project 3](../projects/p3-rag.md#results-from-one-run) measures this on a corpus built to show it: dense retrieval finds 55% of the identifier questions and BM25 all of them, while BM25 finds 43% of the paraphrased questions and dense 71%.
+Dense embeddings capture meaning but are fuzzy on exact tokens. Ask about `ERR_4021` or `--max-retries` and an embedder may happily return a passage about `ERR_4012`. Classic keyword search gets exact matches right and paraphrases wrong. They fail on different queries, so combining them is one of the most reliable improvements you can make. [Project 5](../projects/support-rag.md#results-from-one-run) measures this on a corpus built to show it: dense retrieval finds 55% of the identifier questions and BM25 all of them, while BM25 finds 43% of the paraphrased questions and dense 71%.
 
 ### BM25 in one formula
 
@@ -163,10 +163,10 @@ trainer.train()
 model.save_pretrained("models/bge-small-nimbus")
 ```
 
-The complete script, [`finetune_embedder.py`](https://github.com/vivek-rm-14286/llm-from-scratch/tree/main/code/p3_support_rag/finetune_embedder.py) in Project 3, adds the train/held-out split and the before/after measurement:
+The complete script, [`finetune_embedder.py`](https://github.com/vivek-rm-14286/llm-from-scratch/tree/main/code/support_rag/finetune_embedder.py) in Project 5, adds the train/held-out split and the before/after measurement:
 
 ```bash
-cd code/p3_support_rag
+cd code/support_rag
 python finetune_embedder.py                 # 3 epochs on CPU
 python finetune_embedder.py --max-steps 5   # smoke test
 ```
@@ -352,7 +352,7 @@ Return JSON: {"claims": [{"claim": "...", "supported": true|false}], "faithfulne
 
 ### RAGAS and other frameworks
 
-[RAGAS](https://docs.ragas.io/) packages these ideas: metrics such as faithfulness, answer relevancy, context precision and context recall, computed with an LLM judge and embeddings, plus test-set generation. Alternatives include TruLens, DeepEval, Arize Phoenix and promptfoo. They save time, but their APIs change between versions, so pin the version and understand what each metric actually prompts the judge to do. [Project 3](../projects/p3-rag.md) implements recall@k, MRR and an LLM-judge faithfulness score from scratch so nothing is a black box.
+[RAGAS](https://docs.ragas.io/) packages these ideas: metrics such as faithfulness, answer relevancy, context precision and context recall, computed with an LLM judge and embeddings, plus test-set generation. Alternatives include TruLens, DeepEval, Arize Phoenix and promptfoo. They save time, but their APIs change between versions, so pin the version and understand what each metric actually prompts the judge to do. [Project 5](../projects/support-rag.md) implements recall@k, MRR and an LLM-judge faithfulness score from scratch so nothing is a black box.
 
 ## Production concerns
 

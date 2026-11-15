@@ -19,7 +19,7 @@ A short, curated list of the courses, books, papers, and code that are most wort
 
 ## Pretraining and scaling
 
-- **Karpathy, [nanoGPT](https://github.com/karpathy/nanoGPT)**: a small, readable codebase for training GPT-2-class models. A useful reference for [Project 1](projects/p1-500m-model.md).
+- **Karpathy, [nanoGPT](https://github.com/karpathy/nanoGPT)**: a small, readable codebase for training GPT-2-class models. A useful reference for [Project 9](projects/slm-500m.md).
 - **[Stanford CS336: Language Modeling from Scratch](https://cs336.stanford.edu/)**: a course that builds every part of the LM stack, from tokenizer to training to alignment, with demanding assignments.
 - **Kaplan et al., [Scaling Laws for Neural Language Models](https://arxiv.org/abs/2001.08361)** and **Hoffmann et al., [Training Compute-Optimal Large Language Models](https://arxiv.org/abs/2203.15556)** (Chinchilla).
 - **Rajbhandari et al., [ZeRO](https://arxiv.org/abs/1910.02054)** and **Micikevicius et al., [Mixed Precision Training](https://arxiv.org/abs/1710.03740)**.
@@ -57,7 +57,7 @@ A short, curated list of the courses, books, papers, and code that are most wort
 
 - **Sutton and Barto, [Reinforcement Learning: An Introduction](http://incompleteideas.net/book/the-book-2nd.html)** (2nd edition): the standard RL textbook, free online. Read chapters 1-6 and 13 alongside [Decision Models](decision/index.md).
 - **OpenAI, [Spinning Up in Deep RL](https://spinningup.openai.com/en/latest/)**: a clear introduction to deep RL with key algorithms (including PPO) explained and implemented.
-- **Schulman et al., [Proximal Policy Optimization Algorithms](https://arxiv.org/abs/1707.06347)**: the PPO paper, used in [Project 4](projects/p4-decision-model.md).
+- **Schulman et al., [Proximal Policy Optimization Algorithms](https://arxiv.org/abs/1707.06347)**: the PPO paper, used in [Project 4](projects/game-agent.md).
 - **Hugging Face, [Deep RL Course](https://huggingface.co/learn/deep-rl-course)**: a free, practical course with hands-on environments.
 
 ## Tools

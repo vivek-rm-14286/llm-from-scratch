@@ -18,7 +18,7 @@ Symbols: $N$ parameters, $D$ training tokens, $L$ layers, $d$ model width, $T$ s
 
 Peak dense bf16 throughput: H100 989 TFLOP/s, A100 312 TFLOP/s. H100 memory bandwidth: about 3.35 TB/s.
 
-**Project 1 as the worked example** ([Build a 500M SLM From Scratch](projects/p1-500m-model.md)): 486,605,824 parameters, 32 layers, $d$ = 1024, $T$ = 2048.
+**Project 9 as the worked example** ([Build a 500M SLM From Scratch](projects/slm-500m.md)): 486,605,824 parameters, 32 layers, $d$ = 1024, $T$ = 2048.
 
 | Run | Total FLOPs | H100-hours at 40% MFU | On 8×H100 |
 |---|---|---|---|
@@ -33,11 +33,11 @@ Rental price: roughly USD 2-4 per H100-hour.
 |---|---|---|
 | GPT-2-style block | $12d^2$ per block ($4d^2$ attention + $8d^2$ MLP), so $N \approx 12Ld^2$ plus embeddings $V d$ (tied) | [The Transformer, Line by Line](llm/transformer.md) |
 | SwiGLU MLP | $3\,d\,d_{\text{ff}}$; $d_{\text{ff}} = \tfrac{8}{3}d$ matches a $4d$ GELU MLP | [Modern Architectures & SLM Design](llm/modern-architectures.md) |
-| GQA + SwiGLU block (Project 1) | $2d \cdot H d_h + 2d \cdot H_{kv} d_h + 3\,d\,d_{\text{ff}} + 2d$, with $d_h = d/H$ | [Project 1](projects/p1-500m-model.md) |
-| Whole model (tied embeddings) | $L \times \text{block} + Vd + d$ | [Project 1](projects/p1-500m-model.md) |
+| GQA + SwiGLU block (Project 9) | $2d \cdot H d_h + 2d \cdot H_{kv} d_h + 3\,d\,d_{\text{ff}} + 2d$, with $d_h = d/H$ | [Project 9](projects/slm-500m.md) |
+| Whole model (tied embeddings) | $L \times \text{block} + Vd + d$ | [Project 9](projects/slm-500m.md) |
 | LoRA adapter on one matrix | $r\,(d_{\text{in}} + d_{\text{out}})$ | [LoRA & QLoRA](finetuning/lora-qlora.md) |
 
-Check for Project 1 ($H$ = 16, $H_{kv}$ = 4, $d_{\text{ff}}$ = 3584, $V$ = 49,152): block = 13,633,536; 32 blocks + 50,331,648 embedding + 1,024 = 486,605,824.
+Check for Project 9 ($H$ = 16, $H_{kv}$ = 4, $d_{\text{ff}}$ = 3584, $V$ = 49,152): block = 13,633,536; 32 blocks + 50,331,648 embedding + 1,024 = 486,605,824.
 
 ## Memory
 
@@ -54,7 +54,7 @@ Check for Project 1 ($H$ = 16, $H_{kv}$ = 4, $d_{\text{ff}}$ = 3584, $V$ = 49,15
 | 7B model weights, bf16 / 4-bit | 14 GB / about 3.5 GB plus quantization scales |
 | 8B model weights, bf16 / int8 / int4 | 16 GB / 8 GB / about 4.5 GB |
 | KV cache, Llama 3 8B (32 layers, 8 KV heads, head dim 128, bf16) | 128 KiB per token; 1 GiB per sequence at 8K context |
-| KV cache, Project 1 (32 layers, 4 KV heads, head dim 64, bf16) | 32 KiB per token; 64 MiB per sequence at 2,048 tokens |
+| KV cache, Project 9 (32 layers, 4 KV heads, head dim 64, bf16) | 32 KiB per token; 64 MiB per sequence at 2,048 tokens |
 | 8B full fine-tune, bf16 + AdamW | about 128 GB before activations |
 | 8B LoRA r=16, bf16 base | about 17 GB before activations |
 | 8B QLoRA r=16, NF4 base | about 6.5 GB before activations (base about 5.5-6 GB, trainable state about 0.7 GB) |
@@ -63,7 +63,7 @@ The three fine-tuning rows are from [Memory math: 7B/8B on a 24 GB GPU](finetuni
 
 ## Default hyperparameters
 
-| Setting | Pretraining (Project 1, 10B run) | SFT, full fine-tune | LoRA / QLoRA | DPO |
+| Setting | Pretraining (Project 9, 10B run) | SFT, full fine-tune | LoRA / QLoRA | DPO |
 |---|---|---|---|---|
 | Learning rate | 8e-4 peak (1e-3 for the 50B run) | 1e-5 to 2e-5 at 7B-8B; up to ~5e-5 to 1e-4 below 1B | 2e-4 (1e-4 to 3e-4) | 5e-7 to 5e-6 full; 5e-6 to 5e-5 with LoRA |
 | Schedule | WSD: 1,000 warmup steps, decay over the last 20% | linear or cosine, ~3% warmup | cosine or linear, 3% warmup | cosine, 10% warmup in the example |
@@ -71,7 +71,7 @@ The three fine-tuning rows are from [Memory math: 7B/8B on a 24 GB GPU](finetuni
 | Batch | 524,288 tokens per step ($T$ = 2048) | 64 to 256 sequences (effective) | as SFT | 4 × 8 accumulation in the example |
 | Length | one pass over the data | 1 to 3 epochs | 2 epochs in the example | 1 epoch in the example |
 | Method-specific | gradient clip 1.0, bf16 autocast | max length 2048 to 4096; loss on assistant tokens only | `r` = 16, `lora_alpha` = 2 × r, dropout 0.05, `target_modules="all-linear"` | $\beta$ = 0.1 (0.01 to 0.5) |
-| Source | [Project 1](projects/p1-500m-model.md), [The Training Loop](pretraining/training.md) | [SFT: Hyperparameters](post-training/sft.md#hyperparameters) | [Hyperparameter defaults](finetuning/lora-qlora.md#hyperparameter-defaults) | [DPO from scratch](post-training/preference.md#dpo-from-scratch) |
+| Source | [Project 9](projects/slm-500m.md), [The Training Loop](pretraining/training.md) | [SFT: Hyperparameters](post-training/sft.md#hyperparameters) | [Hyperparameter defaults](finetuning/lora-qlora.md#hyperparameter-defaults) | [DPO from scratch](post-training/preference.md#dpo-from-scratch) |
 
 PPO on small discrete-control tasks ([Hyperparameter tips](decision/policy-methods.md#hyperparameter-tips)):
 

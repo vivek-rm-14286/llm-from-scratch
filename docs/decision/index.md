@@ -1,6 +1,6 @@
 # Decision Models
 
-Not every useful model writes text. A game agent picks a button to press 60 times a second. A robot picks joint targets. A router picks which LLM answers a query, a guard picks "allow" or "block", and a loan system picks "approve", "decline" or "refer". These are all **decision models**: models whose output is a *choice*, and whose quality is judged by the consequences of that choice. This section teaches the two main kinds from scratch, shows how they connect to LLMs, and ends with a project in which you build an agent that plays an original game.
+Not every useful model writes text. A game agent picks a button to press 60 times a second. A robot picks joint targets. A router picks which LLM answers a query, a guard picks "allow" or "block", and a loan system picks "approve", "decline" or "refer". These are all **decision models**: models whose output is a *choice*, and whose quality is judged by the consequences of that choice. This section teaches the two main kinds from scratch, shows how they connect to LLMs, and feeds two projects: a [calibrated ticket router](../projects/ticket-router.md) and an [agent that plays an original game](../projects/game-agent.md).
 
 !!! abstract "What you'll learn in this section"
     - What "decision model" means in two senses: **sequential policies** (observation → action, over time) and **one-shot decision models** (input → calibrated probabilities over options)
@@ -76,7 +76,7 @@ Examples: LLM routers (cheap vs expensive model), intent and tool classifiers fo
 
     Routers, intent and guard classifiers, decision language models that score options in one prefill, calibration, thresholds, cost-aware evaluation.
 
-- **[Project 4: A Decision Model That Plays](../projects/p4-decision-model.md)**
+- **[Project 4: A Decision Model That Plays](../projects/game-agent.md)**
 
     An original arcade game as a Gymnasium env, a scripted expert, behavior cloning, PPO fine-tuning, ONNX export, plus an in-browser demo that trains live.
 

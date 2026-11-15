@@ -143,7 +143,7 @@ $$
 \frac{1.5 \times 10^{20}}{8 \times 3.96 \times 10^{14}} \approx 4.7 \times 10^{4} \text{ s} \approx 13 \text{ hours}
 $$
 
-About **105 GPU-hours**, roughly USD 210-420 at the same rental range. This is the scale of [Project 1](../projects/p1-500m-model.md). Project 1's exact config (486.6M parameters plus attention FLOPs) comes to about 26 and 131 GPU-hours for these two runs, so the larger one takes about 16 hours on one 8-GPU node.
+About **105 GPU-hours**, roughly USD 210-420 at the same rental range. This is the scale of [Project 9](../projects/slm-500m.md). Project 9's exact config (486.6M parameters plus attention FLOPs) comes to about 26 and 131 GPU-hours for these two runs, so the larger one takes about 16 hours on one 8-GPU node.
 
 ### Worked example 3: 1B parameters, 1T tokens on 64x H100
 
@@ -219,7 +219,7 @@ Wei et al. (2022) reported "emergent abilities": tasks where small models score 
 
 Starting point: `estimate.py` from this page.
 
-1. **Add the attention term.** Give `train_time` optional `n_layer`, `d_model` and `seq_len` arguments and use `(6 * N + 12 * n_layer * d_model * seq_len) * D` as the FLOP count. Run it for Project 1's shape (`N = 486.6e6`, 32 layers, `d_model` 1024, `seq_len` 2048) on 8 H100s at 40% MFU and USD 3 per GPU-hour. Expected:
+1. **Add the attention term.** Give `train_time` optional `n_layer`, `d_model` and `seq_len` arguments and use `(6 * N + 12 * n_layer * d_model * seq_len) * D` as the FLOP count. Run it for Project 9's shape (`N = 486.6e6`, 32 layers, `d_model` 1024, `seq_len` 2048) on 8 H100s at 40% MFU and USD 3 per GPU-hour. Expected:
 
     ```text
     D=10B: 3.72e+19 FLOPs, 3.3 h wall, 26 GPU-h, USD 78

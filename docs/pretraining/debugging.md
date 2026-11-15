@@ -35,7 +35,7 @@ $$
 \mathcal{L}_0 = -\ln\frac{1}{V} = \ln V
 $$
 
-For a 50,257-token vocabulary that is 10.82; for Project 1's 49,152 tokens, 10.80; for a 90-character vocabulary, 4.50. Print the loss before the first optimizer step and compare.
+For a 50,257-token vocabulary that is 10.82; for Project 9's 49,152 tokens, 10.80; for a 90-character vocabulary, 4.50. Print the loss before the first optimizer step and compare.
 
 - **Much higher** (say 18 instead of 4.5): the logits start large, so the model is confidently wrong. Look at the initialization of the output head and the embeddings (std 0.02, not PyTorch's default of 1.0 for `nn.Embedding`), or at a missing final normalization layer.
 - **Much lower**: the model can see the answer before training. Go straight to check 3.

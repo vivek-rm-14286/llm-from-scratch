@@ -33,7 +33,7 @@ Treat this as an engineering metaphor, not a claim about brains. In ML systems i
 
 A System 1 model is a **policy** in the RL sense, $a_t = \pi(o_t)$, evaluated inside a control loop with a hard deadline. Examples:
 
-- **Game agents.** A bot that has to choose an action every frame. At 60 frames per second, the whole frame (physics, rendering, input, AI) gets about 16.7 ms. The policy should take a small fraction of that, ideally well under 1 ms. The agent in [Project 4](../projects/p4-decision-model.md) is an MLP with about 23k parameters that runs in microseconds.
+- **Game agents.** A bot that has to choose an action every frame. At 60 frames per second, the whole frame (physics, rendering, input, AI) gets about 16.7 ms. The policy should take a small fraction of that, ideally well under 1 ms. The agent in [Project 4](../projects/game-agent.md) is an MLP with about 23k parameters that runs in microseconds.
 - **Robot visuomotor control.** Camera images and joint states in, joint targets out, at tens to hundreds of Hz. Missing a deadline here means jerky or unsafe motion, not just a slow answer.
 - **Low-level controllers in general:** drone stabilization, legged locomotion, autonomous-driving trajectory tracking. Many of these are trained with RL in simulation (see [DQN & PPO](policy-methods.md)) and deployed as small networks.
 
@@ -201,7 +201,7 @@ Train the small policy directly with PPO in a simulator, often with **privileged
 
 ### 3. BC then RL
 
-Clone demonstrations for a competent start, then fine-tune with RL to exceed the demonstrator and recover from its own mistakes. [Project 4](../projects/p4-decision-model.md) follows this recipe end to end and finishes with an ONNX export and a latency measurement.
+Clone demonstrations for a competent start, then fine-tune with RL to exceed the demonstrator and recover from its own mistakes. [Project 4](../projects/game-agent.md) follows this recipe end to end and finishes with an ONNX export and a latency measurement.
 
 ### 4. Shrinking
 

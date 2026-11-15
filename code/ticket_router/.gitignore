@@ -1,0 +1,5 @@
+data/
+data_*/
+out/
+.venv/
+.pytest_cache/

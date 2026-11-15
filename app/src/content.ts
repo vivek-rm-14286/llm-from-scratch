@@ -9,12 +9,15 @@ export type PageMeta = {
   headings: { id: string; level: number; text: string }[]
   hasMath: boolean; hasMermaid: boolean; hasScript: boolean; hasTasks: boolean; minutes: number
   usedIn?: { route: string; title: string; note: string }[]
+  tag?: string
 }
 
 export const SITE = manifest.site as { title: string; description: string; repo: string }
 export const TRACKS = manifest.tracks as Track[]
 export const REFERENCE = manifest.reference as LessonRef[]
-export const PAGES = manifest.pages as Record<string, PageMeta>
+export const PAGES = manifest.pages as unknown as Record<string, PageMeta>
+/** Old routes that moved (kept so shared links keep working). */
+export const REDIRECTS = (manifest as { redirects?: Record<string, string> }).redirects ?? {}
 /** Curriculum order (lessons only, no reference pages). */
 export const LESSON_ORDER: string[] = TRACKS.flatMap((t) => t.modules.flatMap((m) => m.lessons.map((l) => l.route)))
 /** Full reading order including reference pages, used for prev/next. */

@@ -219,7 +219,11 @@ def main() -> int:
         shutil.rmtree(tmp_out, ignore_errors=True)
         return 1
 
-    manifest = {"site": cur["site"], "tracks": tracks, "reference": reference, "order": order, "pages": meta}
+    for rel, tag in (cur.get("tags") or {}).items():
+        if rel in routes:
+            meta[routes[rel]]["tag"] = tag
+    redirects = {k: v for k, v in (cur.get("redirects") or {}).items() if v in meta}
+    manifest = {"site": cur["site"], "tracks": tracks, "reference": reference, "order": order, "pages": meta, "redirects": redirects}
     (tmp_out / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=1))
     (tmp_out / "search.json").write_text(json.dumps(search, ensure_ascii=False))
     if final_out.exists():

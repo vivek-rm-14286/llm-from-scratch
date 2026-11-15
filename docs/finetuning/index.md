@@ -149,7 +149,7 @@ flowchart LR
 
 When a run underperforms, **look at the data before the hyperparameters.** Read the model's failures on the eval set and the training examples nearest to them. Nine times out of ten the fix is in the data.
 
-[Project 2](../projects/p2-finetune.md) follows this loop end to end: eval set and prompted baseline first, then a QLoRA run, then the regression checks. When the base model lacks the domain or language itself, or when several fine-tunes need combining into one model, see [Continued Pretraining & Model Merging](merging-continued-pretraining.md).
+[Project 6](../projects/incident-triage-finetune.md) follows this loop end to end: eval set and prompted baseline first, then a QLoRA run, then the regression checks. When the base model lacks the domain or language itself, or when several fine-tunes need combining into one model, see [Continued Pretraining & Model Merging](merging-continued-pretraining.md).
 
 !!! warning "Common pitfalls"
     - **Fine-tuning to add knowledge.** Use RAG for facts; fine-tune for behavior.

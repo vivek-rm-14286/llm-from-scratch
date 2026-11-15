@@ -117,7 +117,7 @@ $$
 Architecturally, SLMs also make deliberate choices that matter less at large scale: tied input/output embeddings, deep-and-thin shapes, grouped-query attention, and careful vocabulary sizing. These are covered in [Modern Architectures & SLM Design](modern-architectures.md).
 
 !!! note "SLMs are a sweet spot for learning"
-    Everything that matters about LLMs (tokenization, attention, scaling, data quality, post-training) shows up at the 100M-1B scale, and you can actually afford to train one. [Project 1](../projects/p1-500m-model.md) builds a 500M model from scratch.
+    Everything that matters about LLMs (tokenization, attention, scaling, data quality, post-training) shows up at the 100M-1B scale, and you can actually afford to train one. [Project 9](../projects/slm-500m.md) builds a 500M model from scratch.
 
 ## Section map
 

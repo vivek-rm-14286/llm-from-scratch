@@ -1,0 +1,6 @@
+# Tested with Python 3.12, numpy 2.5.4, scikit-learn 1.9.1, pytest 9.2.0, torch 2.15.0 (laptop CPU).
+numpy>=1.26
+scikit-learn>=1.3
+pytest>=7.4
+# Optional: only compare_torch.py and tests/test_torch.py need it. Without torch those tests are skipped.
+torch>=2.2

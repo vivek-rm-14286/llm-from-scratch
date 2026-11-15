@@ -105,10 +105,10 @@ The site is written for four tiers. Each project states the hardware it needs.
 
 | Tier | Example | Memory | Good for |
 |------|---------|--------|----------|
-| **1. Laptop** | Apple Silicon Mac (M-series), or any laptop CPU | 16-128 GB unified (Mac) | All Foundations and Language Models pages, tiny transformers (up to a few tens of millions of params), Project 4, Project 3 retrieval and small generators, inference of quantized small models |
-| **2. Consumer GPU** | RTX 3090 / 4090 (24 GB), or a 5090 (32 GB). A 16 GB card (RTX 5070 Ti, 4080) does most of this more slowly: see below | 24-32 GB VRAM | Training models up to roughly 100-300M params, QLoRA fine-tuning of models up to roughly 7-14B params, Project 2 and Project 3 fully |
-| **3. Single data-center GPU** | One A100 80 GB or H100 80 GB, rented | 80 GB HBM | Debugging and short runs of Project 1, full fine-tuning of small models, LoRA on larger ones |
-| **4. 8-GPU node** | 8x H100 80 GB with NVLink, rented | 640 GB total | Project 1 full pretraining run in hours rather than days |
+| **1. Laptop** | Apple Silicon Mac (M-series), or any laptop CPU | 16-128 GB unified (Mac) | All Foundations and Language Models pages, tiny transformers (up to a few tens of millions of params), Projects 1-4 fully, Project 5 retrieval and small generators, Project 7 at its small setting, Project 8 with any LLM endpoint, inference of quantized small models |
+| **2. Consumer GPU** | RTX 3090 / 4090 (24 GB), or a 5090 (32 GB). A 16 GB card (RTX 5070 Ti, 4080) does most of this more slowly: see below | 24-32 GB VRAM | Training models up to roughly 100-300M params, QLoRA fine-tuning of models up to roughly 7-14B params, Project 6 and Project 5 fully |
+| **3. Single data-center GPU** | One A100 80 GB or H100 80 GB, rented | 80 GB HBM | Debugging and short runs of Project 9, full fine-tuning of small models, LoRA on larger ones |
+| **4. 8-GPU node** | 8x H100 80 GB with NVLink, rented | 640 GB total | Project 9 full pretraining run in hours rather than days |
 
 Apple Silicon is unusual because the GPU shares system memory. A 64 GB Mac can *load* models that do not fit on a 24 GB GPU, but its compute throughput and memory bandwidth are well below an H100, so training is much slower.
 
@@ -118,15 +118,16 @@ A 16 GB card such as the RTX 5070 Ti sits between tier 1 and tier 2. The numbers
 
 | Task | Fits in 16 GB? | Rough time |
 |---|---|---|
-| Project 1 warm-up: `p30m`, 50M tokens | easily | 10-20 minutes |
-| Project 1 cheap path: `p125m`, 2.5B tokens | yes, with micro-batch 4 (`configs/p125m_16gb.json`) | about 23 hours (about 12 on an RTX 4090) |
-| Project 1 full model: `p500m`, 10B tokens | barely: about 7.8 GB of weights and optimizer state, micro-batch 1-2 | about 14 days of continuous running. Rent GPUs for this one |
-| Project 1 Part B: SFT of the `p125m` model on SmolTalk, 2 epochs | yes | about 12 hours; a quarter of the data in about 3 |
-| Project 2: QLoRA on a 7B model | yes, tight: 4-bit base about 5.5-6 GB plus activations; use batch 1 with gradient accumulation | roughly 2-3 hours |
-| Project 2: QLoRA on the 1.5B model | easily | roughly 30-40 minutes |
+| Project 9 warm-up: `p30m`, 50M tokens | easily | 10-20 minutes |
+| Project 9 cheap path: `p125m`, 2.5B tokens | yes, with micro-batch 4 (`configs/p125m_16gb.json`) | about 23 hours (about 12 on an RTX 4090) |
+| Project 9 full model: `p500m`, 10B tokens | barely: about 7.8 GB of weights and optimizer state, micro-batch 1-2 | about 14 days of continuous running. Rent GPUs for this one |
+| Project 9 Part B: SFT of the `p125m` model on SmolTalk, 2 epochs | yes | about 12 hours; a quarter of the data in about 3 |
+| Project 6: QLoRA on a 7B model | yes, tight: 4-bit base about 5.5-6 GB plus activations; use batch 1 with gradient accumulation | roughly 2-3 hours |
+| Project 6: QLoRA on the 1.5B model | easily | roughly 30-40 minutes |
 | Serving a 7-8B model in 4-bit (GGUF Q4_K_M, about 4.7 GB) | yes, with room for a long context | bandwidth ceiling about 190 tokens/s; expect roughly 60-110 in practice |
 | Serving a 7B model in bf16 (about 15 GB) | no: nothing left for the KV cache | use a 4-bit or AWQ build |
-| Projects 3 and 4 | no GPU needed | the card only speeds up embedding and the local generator |
+| Projects 1-5 and 8 | no GPU needed | the card only speeds up embedding and the local generator |
+| Project 7: SFT then DPO on a 135M-360M model | easily | estimate: well under an hour for the default subsets |
 
 Electricity is the only cost: at about 300 W, the 23-hour run uses about 7 kWh.
 
@@ -201,7 +202,7 @@ def inference_memory_gb(n_params, bytes_per_param, n_layers, n_kv_heads,
     kv = 2 * n_layers * n_kv_heads * d_head * seq_len * batch * kv_bytes
     return weights / 1e9, kv / 1e9
 
-# Project 1's model: 486.6M parameters, 32 layers, d_model 1024, 4 KV heads of dim 64
+# Project 9's model: 486.6M parameters, 32 layers, d_model 1024, 4 KV heads of dim 64
 s, a = training_memory_gb(486.6e6, n_layers=32, d_model=1024,
                           seq_len=2048, micro_batch=8)
 print(f"train: states {s:.1f} GB + activations {a:.1f} GB")
@@ -233,12 +234,12 @@ $$
 \text{time} \approx \frac{6 N D}{\text{num GPUs} \times \text{peak FLOP/s} \times \text{MFU}}
 $$
 
-!!! example "Project 1 back-of-envelope"
+!!! example "Project 9 back-of-envelope"
     $N = 5 \times 10^8$, $D = 10^{10}$ tokens (about 20 tokens per parameter, the Chinchilla rule of thumb). FLOPs $\approx 6 \times 5\times10^8 \times 10^{10} = 3 \times 10^{19}$.
 
     An H100's dense bf16 peak is on the order of $10^{15}$ FLOP/s. At 40% MFU that is $4 \times 10^{14}$ FLOP/s per GPU, so the run takes about $7.5 \times 10^4$ seconds, around **21 GPU-hours**. On an 8-GPU node, about 2.5-3 hours of wall-clock time. Training on more tokens (which small models usually benefit from) scales the time linearly.
 
-    This is the rough $6ND$ estimate. [Project 1](../projects/p1-500m-model.md#2-the-compute-budget) refines it with the exact 486.6M-parameter config and the attention FLOPs that $6ND$ leaves out, which gives about 26 GPU-hours (about 3.5 hours on 8 GPUs).
+    This is the rough $6ND$ estimate. [Project 9](../projects/slm-500m.md#2-the-compute-budget) refines it with the exact 486.6M-parameter config and the attention FLOPs that $6ND$ leaves out, which gives about 26 GPU-hours (about 3.5 hours on 8 GPUs).
 
 ## Renting GPUs
 
@@ -268,14 +269,14 @@ Budget in three parts:
 2. **The main run**: GPU-hours from the formula above, times the hourly price, times a safety factor of about 1.5 for restarts, slower-than-expected throughput, and evaluation.
 3. **Storage and egress**: datasets and checkpoints. A 500M checkpoint with optimizer state is about 6 GB; keep only the last few plus milestone checkpoints.
 
-Using Project 1's refined figure: about 26 GPU-hours at roughly USD 2-4 per H100-hour is roughly USD 50-105, and the 1.5x safety factor gives a budget of roughly USD 80-155 for a Chinchilla-sized Project 1 run. Training on several times more tokens scales that proportionally.
+Using Project 9's refined figure: about 26 GPU-hours at roughly USD 2-4 per H100-hour is roughly USD 50-105, and the 1.5x safety factor gives a budget of roughly USD 80-155 for a Chinchilla-sized Project 9 run. Training on several times more tokens scales that proportionally.
 
 !!! danger "Stop the meter"
     Idle GPUs bill the same as busy ones. Before launching: set a billing alert, write checkpoints to persistent storage, and schedule a shutdown (for example `sudo shutdown -h +600` for 10 hours). Many people's most expensive mistake is a forgotten instance.
 
 ## Running a long job on a rented GPU node
 
-A pretraining run that takes hours has to survive a dropped SSH connection, a reclaimed spot instance and a forgotten meter. The examples use [Project 1](../projects/p1-500m-model.md)'s `train.py`, which writes `ckpt_latest.pt` atomically every `save_every` steps and continues from it with `--resume <path>`.
+A pretraining run that takes hours has to survive a dropped SSH connection, a reclaimed spot instance and a forgotten meter. The examples use [Project 9](../projects/slm-500m.md)'s `train.py`, which writes `ckpt_latest.pt` atomically every `save_every` steps and continues from it with `--resume <path>`.
 
 ### Keep the job alive with tmux
 
@@ -309,7 +310,7 @@ A 500M checkpoint with optimizer state is about 6 GB, so a sync every 15 minutes
 
 ### Move tokenized shards on and off
 
-Tokenize on a cheap CPU machine, not on the GPU node (see Project 1). Then move the shards once: 10B tokens are 20 GB of `uint16` files.
+Tokenize on a cheap CPU machine, not on the GPU node (see Project 9). Then move the shards once: 10B tokens are 20 GB of `uint16` files.
 
 ```bash
 # CPU machine -> bucket (once)
@@ -388,7 +389,7 @@ Whichever you use, always log: training loss, validation loss, learning rate, gr
 
 ## Hugging Face account and Hub
 
-The [Hugging Face Hub](https://huggingface.co/docs/hub/index) hosts open-weight models, datasets, and tokenizers. You will download base models for Projects 2 and 3 and can upload your own checkpoints and adapters.
+The [Hugging Face Hub](https://huggingface.co/docs/hub/index) hosts open-weight models, datasets, and tokenizers. You will download base models for Projects 5 and 6 and can upload your own checkpoints and adapters.
 
 1. Create an account at huggingface.co.
 2. Create an access token (Settings, Access Tokens). A read token is enough for downloading; use a write token to push models.

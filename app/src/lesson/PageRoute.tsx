@@ -1,11 +1,12 @@
-import { Link, useLocation } from 'react-router-dom'
-import { PAGES } from '../content'
+import { Link, Navigate, useLocation } from 'react-router-dom'
+import { PAGES, REDIRECTS } from '../content'
 import { PageView } from './PageView'
 
 export function PageRoute() {
   const { pathname } = useLocation()
   const route = decodeURIComponent(pathname).replace(/^\/+|\/+$/g, '')
   const meta = PAGES[route]
+  if (!meta && REDIRECTS[route]) return <Navigate to={`/${REDIRECTS[route]}`} replace />
   if (!meta) return <NotFound route={route} />
   return <PageView key={route} route={route} meta={meta} />
 }

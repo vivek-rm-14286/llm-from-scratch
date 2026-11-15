@@ -429,7 +429,7 @@ The configuration (6 layers, 6 heads, $d = 384$, context 256) gives about 10.7M 
 On a single modern GPU this runs in a few minutes; on a laptop (Apple MPS or CPU) expect tens of minutes. Reduce `max_iters`, `n_layer`, or `batch_size` if it is too slow. If validation loss starts rising while training loss keeps falling, the model is overfitting this tiny dataset; that is what `dropout=0.2` is fighting.
 
 !!! note "From here to a real model"
-    Swap the character tokenizer for a BPE tokenizer, the 1 MB text for billions of tokens, and add mixed precision, a proper LR schedule, gradient accumulation, and checkpointing. The model code does not need to change. That is the path in [Pretraining](../pretraining/index.md) and [Project 1](../projects/p1-500m-model.md).
+    Swap the character tokenizer for a BPE tokenizer, the 1 MB text for billions of tokens, and add mixed precision, a proper LR schedule, gradient accumulation, and checkpointing. The model code does not need to change. That is the path in [Pretraining](../pretraining/index.md) and [Project 9](../projects/slm-500m.md).
 
 !!! warning "Common pitfalls"
     - **Forgetting to shift targets.** If `y == x`, the model learns to copy its input (loss drops to near zero instantly, generation is garbage). Targets are inputs shifted left by one.

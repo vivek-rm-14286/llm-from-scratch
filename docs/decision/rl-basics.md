@@ -302,7 +302,7 @@ Tabular methods stop working once the state space is large or continuous: a tabl
 
 ## The Gymnasium API
 
-[Gymnasium](https://gymnasium.farama.org/) (the maintained fork of OpenAI Gym) is the standard interface between RL agents and environments. Every environment on this site, including the custom game in [Project 4](../projects/p4-decision-model.md), follows it.
+[Gymnasium](https://gymnasium.farama.org/) (the maintained fork of OpenAI Gym) is the standard interface between RL agents and environments. Every environment on this site, including the custom game in [Project 4](../projects/game-agent.md), follows it.
 
 ```python
 import gymnasium as gym

@@ -11,7 +11,7 @@ A language model on its own can only produce text. Give it a way to request acti
     - Multi-agent patterns, memory and planning
     - Training models for tool use: a tool-call training row rendered through a chat template, with its loss mask, and RL with tool environments
     - Evaluating agents with a task-success loop, and keeping them safe
-    - A lab: Project 2's triage model and Project 3's `/ask` service as tools, and one of them as an MCP server
+    - A lab: Project 6's triage model and Project 5's `/ask` service as tools, and one of them as an MCP server
 
 ## The agent loop
 
@@ -545,33 +545,33 @@ The two aggregate numbers tell different stories: 76% of runs succeed, and not o
 
 Public benchmarks such as SWE-bench (software engineering), tau-bench (tool use with simulated users and policies) and GAIA (assistant tasks) are useful for comparing models; your own task suite is what tells you whether your agent works.
 
-## Lab: Projects 2 and 3 as tools
+## Lab: Projects 5 and 6 as tools
 
 This lab turns two project deliverables into tools for the agent on this page, then exposes one of them over MCP. The result is an assistant that can triage an incident with your fine-tuned model and look up the fix in your knowledge base.
 
 !!! note "What was run"
-    The tool registration and the agent loop were run with both backends stubbed (`test_lab.py` below). The calls to a live triage model and a live `/ask` service, and the MCP server, need Projects 2 and 3 running and were not executed here.
+    The tool registration and the agent loop were run with both backends stubbed (`test_lab.py` below). The calls to a live triage model and a live `/ask` service, and the MCP server, need Projects 5 and 6 running and were not executed here.
 
-**You need:** the triage model from [Project 2](../projects/p2-finetune.md) behind an OpenAI-compatible server (its "Merging and serving" step), the `/ask` service from [Project 3](../projects/p3-rag.md) on port 8080 (`uvicorn app:app --port 8080`), and a tool-calling chat model for the agent itself (the `vllm serve ... --enable-auto-tool-choice` command above; it can be the same server as the triage model if you serve the adapter with `--lora-modules`).
+**You need:** the triage model from [Project 6](../projects/incident-triage-finetune.md) behind an OpenAI-compatible server (its "Merging and serving" step), the `/ask` service from [Project 5](../projects/support-rag.md) on port 8080 (`uvicorn app:app --port 8080`), and a tool-calling chat model for the agent itself (the `vllm serve ... --enable-auto-tool-choice` command above; it can be the same server as the triage model if you serve the adapter with `--lora-modules`).
 
 **Step 1. Wrap both as tools.** Save `agent.py` from this page next to this file. Each wrapper takes one string and returns a short JSON string, which is all the agent loop requires.
 
 ```python title="lab_tools.py"
-"""Register Project 2's triage model and Project 3's /ask endpoint as tools for agent.py."""
+"""Register Project 6's triage model and Project 5's /ask endpoint as tools for agent.py."""
 import json, os, sys, urllib.request
 import agent
 
-sys.path.insert(0, os.environ.get("P2_DIR", "../p2_incident_triage"))   # for inference.py, schema.py, prompts.py
+sys.path.insert(0, os.environ.get("P2_DIR", "../incident_triage"))   # for inference.py, schema.py, prompts.py
 
 def triage_incident(incident_text: str) -> str:
-    from inference import OpenAIBackend, triage                # Project 2: generate -> validate -> retry
+    from inference import OpenAIBackend, triage                # Project 6: generate -> validate -> retry
     backend = OpenAIBackend(base_url=os.environ.get("TRIAGE_BASE_URL", "http://localhost:8000/v1"),
                             model=os.environ.get("TRIAGE_MODEL", "triage"))
     out = triage(backend, incident_text)
     return json.dumps(out["triage"] if out["ok"] else {"error": out["error"]})
 
 def ask_docs(question: str) -> str:
-    req = urllib.request.Request(                              # Project 3: POST /ask
+    req = urllib.request.Request(                              # Project 5: POST /ask
         os.environ.get("RAG_URL", "http://localhost:8080/ask"),
         data=json.dumps({"question": question}).encode(),
         headers={"Content-Type": "application/json",
@@ -594,7 +594,7 @@ if __name__ == "__main__":
     print(answer)
 ```
 
-Two design points. `triage_incident` calls Project 2's `triage()` and not the model directly, so the agent only ever sees output that passed the schema and business-rule checks. `ask_docs` forwards the **user's** API key: the RAG service decides what the caller may read, and an agent must not widen that by using a more privileged key of its own.
+Two design points. `triage_incident` calls Project 6's `triage()` and not the model directly, so the agent only ever sees output that passed the schema and business-rule checks. `ask_docs` forwards the **user's** API key: the RAG service decides what the caller may read, and an agent must not widen that by using a more privileged key of its own.
 
 **Step 2. Test the plumbing without any server.** Stub the two functions and script the model, as in the fake-model test:
 
@@ -631,7 +631,7 @@ lab plumbing ok: SEV2; Restart the agent [1].
 **Step 3. Run it for real** (untested here):
 
 ```bash
-export P2_DIR=../p2_incident_triage TRIAGE_BASE_URL=http://localhost:8000/v1 TRIAGE_MODEL=triage
+export P2_DIR=../incident_triage TRIAGE_BASE_URL=http://localhost:8000/v1 TRIAGE_MODEL=triage
 export RAG_URL=http://localhost:8080/ask RAG_API_KEY=support-demo-key
 export LLM_BASE_URL=http://localhost:8000/v1 LLM_MODEL=Qwen/Qwen2.5-7B-Instruct
 python lab_tools.py "Triage this incident, then find the runbook step for it: $(cat incident.txt)"
@@ -659,7 +659,7 @@ if __name__ == "__main__":
 
 Check it with `mcp dev docs_server.py`, then register it in an MCP host. The API key comes from the environment the host launches the server with, so each user's installation carries that user's access level.
 
-**Step 5. Evaluate it.** Reuse `eval_agent.py`: write ten incident tasks whose checks are programmatic (the severity matches the label from Project 2's test set, the answer contains a citation, the agent abstains on a question the knowledge base cannot answer), run each five times with the real `agent.chat`, and report task success and the all-runs-pass count.
+**Step 5. Evaluate it.** Reuse `eval_agent.py`: write ten incident tasks whose checks are programmatic (the severity matches the label from Project 6's test set, the answer contains a citation, the agent abstains on a question the knowledge base cannot answer), run each five times with the real `agent.chat`, and report task success and the all-runs-pass count.
 
 ## Safety
 

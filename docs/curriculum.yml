@@ -8,7 +8,7 @@ tracks:
   blurb: From zero to a working transformer — the math, PyTorch, and every piece of a modern language model built by hand.
   modules:
   - title: Start Here
-    blurb: How the site is organized, a 21-week roadmap, shorter paths for one goal, and the hardware and budget you need.
+    blurb: How the site is organized, a 29-week roadmap, shorter paths for one goal, and the hardware and budget you need.
     lessons:
     - Overview: start/index.md
     - Learning Roadmap: start/roadmap.md
@@ -107,79 +107,123 @@ tracks:
     - Decision Models for Routing & Classification: decision/routing-models.md
 - title: Projects
   code: P
-  blurb: Four end-to-end builds with complete, runnable code. Each one ties several modules together.
+  blurb: Nine builds in order of difficulty, from a neural network written by hand to a 500M-parameter language model. Each has a walkthrough, complete runnable code and a definition of done.
   modules:
-  - title: Capstone Projects
-    blurb: A 500M SLM, a QLoRA incident-triage copilot, a support RAG copilot and a game-playing policy.
+  - title: Projects
+    blurb: Start at Project 1 and climb. Levels 1-2 run on a laptop, level 3 wants one consumer GPU, level 4 ties everything together.
     lessons:
     - Overview: projects/index.md
-    - Build a 500M SLM From Scratch: projects/p1-500m-model.md
-    - Fine-tune an Open-Weight Model: projects/p2-finetune.md
-    - Build a Production RAG System: projects/p3-rag.md
-    - A Decision Model That Plays: projects/p4-decision-model.md
+    - Neural Network From Scratch: projects/nn-from-scratch.md
+    - Tiny GPT: projects/tiny-gpt.md
+    - "Ticket Router: a Calibrated Decision Model": projects/ticket-router.md
+    - A Decision Model That Plays: projects/game-agent.md
+    - Build a Production RAG System: projects/support-rag.md
+    - Fine-tune an Open-Weight Model: projects/incident-triage-finetune.md
+    - "Post-train a Small Model: SFT, Then DPO": projects/post-train-assistant.md
+    - "On-Call Agent: Tools, MCP, Guardrails": projects/oncall-agent.md
+    - Build a 500M SLM From Scratch: projects/slm-500m.md
+tags:
+  projects/nn-from-scratch.md: Level 1 · laptop
+  projects/tiny-gpt.md: Level 1 · laptop
+  projects/ticket-router.md: Level 2 · laptop
+  projects/game-agent.md: Level 2 · laptop
+  projects/support-rag.md: Level 2 · laptop + any LLM endpoint
+  projects/incident-triage-finetune.md: Level 3 · one 16-24 GB GPU
+  projects/post-train-assistant.md: Level 3 · laptop or one GPU
+  projects/oncall-agent.md: Level 4 · laptop + any LLM endpoint
+  projects/slm-500m.md: Level 4 · rented GPUs (laptop warm-up included)
+redirects:
+  projects/p1-500m-model: projects/slm-500m
+  projects/p2-finetune: projects/incident-triage-finetune
+  projects/p3-rag: projects/support-rag
+  projects/p4-decision-model: projects/game-agent
 reference:
 - Glossary: glossary.md
 - Cheat Sheet: cheatsheet.md
 - Resources: resources.md
 used_in:
   foundations/pytorch.md:
-  - {project: projects/p4-decision-model.md, note: "train_bc.py is a plain PyTorch training loop"}
+  - {project: projects/nn-from-scratch.md, note: "compare_torch.py checks the hand-written library against PyTorch"}
+  - {project: projects/game-agent.md, note: "train_bc.py is a plain PyTorch training loop"}
   foundations/neural-networks.md:
-  - {project: projects/p4-decision-model.md, note: "the policy is a small MLP trained with Adam"}
+  - {project: projects/nn-from-scratch.md, note: "engine.py, tensor.py, nn.py and optim.py: autograd, layers and optimizers by hand"}
+  - {project: projects/game-agent.md, note: "the policy is a small MLP trained with Adam"}
   llm/tokenization.md:
-  - {project: projects/p1-500m-model.md, note: "train_tokenizer.py trains the byte-level BPE; sft.py adds the chat special tokens"}
+  - {project: projects/tiny-gpt.md, note: "bpe.py: a byte-level BPE tokenizer written from scratch"}
+  - {project: projects/slm-500m.md, note: "train_tokenizer.py trains the byte-level BPE; sft.py adds the chat special tokens"}
   llm/attention.md:
-  - {project: projects/p1-500m-model.md, note: "model.py: causal self-attention with grouped-query heads"}
+  - {project: projects/tiny-gpt.md, note: "model.py: causal self-attention, tested for causality"}
+  - {project: projects/slm-500m.md, note: "model.py: causal self-attention with grouped-query heads"}
   llm/transformer.md:
-  - {project: projects/p1-500m-model.md, note: "model.py is this GPT with modern components swapped in"}
+  - {project: projects/tiny-gpt.md, note: "model.py and train.py: the whole GPT, written and trained on a laptop"}
+  - {project: projects/slm-500m.md, note: "model.py is this GPT with modern components swapped in"}
   llm/modern-architectures.md:
-  - {project: projects/p1-500m-model.md, note: "config.py and model.py: RMSNorm, RoPE, SwiGLU, GQA and the 486.6M design"}
+  - {project: projects/tiny-gpt.md, note: "the --modern upgrade: RMSNorm, RoPE and SwiGLU"}
+  - {project: projects/slm-500m.md, note: "config.py and model.py: RMSNorm, RoPE, SwiGLU, GQA and the 486.6M design"}
   llm/scaling-laws.md:
-  - {project: projects/p1-500m-model.md, note: "the compute budget and token count for the run"}
+  - {project: projects/slm-500m.md, note: "the compute budget and token count for the run"}
   pretraining/data.md:
-  - {project: projects/p1-500m-model.md, note: "prepare_data.py streams, tokenizes and writes binary shards"}
+  - {project: projects/slm-500m.md, note: "prepare_data.py streams, tokenizes and writes binary shards"}
   pretraining/training.md:
-  - {project: projects/p1-500m-model.md, note: "train.py: the loop, schedule, mixed precision, checkpoints"}
+  - {project: projects/tiny-gpt.md, note: "train.py: AdamW, warmup and decay, clipping, checkpoint and resume"}
+  - {project: projects/slm-500m.md, note: "train.py: the loop, schedule, mixed precision, checkpoints"}
   pretraining/distributed.md:
-  - {project: projects/p1-500m-model.md, note: "train.py under torchrun (DDP)"}
+  - {project: projects/slm-500m.md, note: "train.py under torchrun (DDP)"}
   pretraining/gpu-performance.md:
-  - {project: projects/p1-500m-model.md, note: "throughput tuning and MFU logging in train.py"}
+  - {project: projects/slm-500m.md, note: "throughput tuning and MFU logging in train.py"}
   pretraining/evaluation.md:
-  - {project: projects/p1-500m-model.md, note: "eval_hellaswag.py and validation loss"}
+  - {project: projects/slm-500m.md, note: "eval_hellaswag.py and validation loss"}
   post-training/sft.md:
-  - {project: projects/p1-500m-model.md, note: "sft.py turns the base model into a chat model"}
-  - {project: projects/p2-finetune.md, note: "train_qlora.py is SFT on chat-format triage examples"}
+  - {project: projects/incident-triage-finetune.md, note: "train_qlora.py is SFT on chat-format triage examples"}
+  - {project: projects/post-train-assistant.md, note: "sft.py: chat template, loss masking and the training loop"}
+  - {project: projects/slm-500m.md, note: "sft.py turns the base model into a chat model"}
   post-training/distillation-synthetic-data.md:
-  - {project: projects/p2-finetune.md, note: "generate_data.py and teacher_label.py build the training set"}
+  - {project: projects/incident-triage-finetune.md, note: "generate_data.py and teacher_label.py build the training set"}
+  - {project: projects/post-train-assistant.md, note: "build_prefs.py builds the preference pairs"}
   finetuning/index.md:
-  - {project: projects/p2-finetune.md, note: "the prompted baseline comes before any training"}
+  - {project: projects/incident-triage-finetune.md, note: "the prompted baseline comes before any training"}
   finetuning/lora-qlora.md:
-  - {project: projects/p2-finetune.md, note: "train_qlora.py and merge_adapter.py"}
+  - {project: projects/incident-triage-finetune.md, note: "train_qlora.py and merge_adapter.py"}
   inference/inference.md:
-  - {project: projects/p1-500m-model.md, note: "chat.py: sampling with a KV cache"}
+  - {project: projects/tiny-gpt.md, note: "generate.py: temperature, top-k, top-p and a KV cache"}
+  - {project: projects/slm-500m.md, note: "chat.py: sampling with a KV cache"}
   inference/serving.md:
-  - {project: projects/p2-finetune.md, note: "serving the merged or quantized model"}
+  - {project: projects/incident-triage-finetune.md, note: "serving the merged or quantized model"}
   pretraining/debugging.md:
-  - {project: projects/p1-500m-model.md, note: "the checks to run before paying for the full pretraining run"}
+  - {project: projects/tiny-gpt.md, note: "checks.py: step-0 loss, overfit one batch, causality, cached vs uncached"}
+  - {project: projects/slm-500m.md, note: "the checks to run before paying for the full pretraining run"}
   rag/fundamentals.md:
-  - {project: projects/p3-rag.md, note: "ingest.py: chunking, embedding and indexing"}
+  - {project: projects/support-rag.md, note: "ingest.py: chunking, embedding and indexing"}
   rag/advanced.md:
-  - {project: projects/p3-rag.md, note: "retrieve.py (hybrid search, reranking), eval.py and finetune_embedder.py"}
+  - {project: projects/support-rag.md, note: "retrieve.py (hybrid search, reranking), eval.py and finetune_embedder.py"}
   applications/prompting.md:
-  - {project: projects/p2-finetune.md, note: "prompts.py and schema-validated JSON output"}
-  - {project: projects/p3-rag.md, note: "generate.py builds the cited-answer prompt"}
+  - {project: projects/support-rag.md, note: "generate.py builds the cited-answer prompt"}
+  - {project: projects/incident-triage-finetune.md, note: "prompts.py and schema-validated JSON output"}
+  - {project: projects/oncall-agent.md, note: "tool schemas and structured tool calls"}
   production/safety.md:
-  - {project: projects/p3-rag.md, note: "guardrails.py and redteam.py: prompt injection through retrieved documents, measured"}
+  - {project: projects/support-rag.md, note: "guardrails.py and redteam.py: prompt injection through retrieved documents, measured"}
+  - {project: projects/oncall-agent.md, note: "guardrails.py and the injection scenarios, with attack success measured"}
   production/llmops.md:
-  - {project: projects/p3-rag.md, note: "eval.py --baseline and ci/eval-gate.yml: a regression gate for CI"}
+  - {project: projects/support-rag.md, note: "eval.py --baseline and ci/eval-gate.yml: a regression gate for CI"}
+  - {project: projects/oncall-agent.md, note: "run_eval.py and ci/agent-eval-gate.yml: an eval gate for agents"}
   applications/agents.md:
-  - {project: projects/p2-finetune.md, note: "the lab wraps the triage model as an agent tool"}
-  - {project: projects/p3-rag.md, note: "the lab wraps the /ask endpoint as a tool and an MCP server"}
+  - {project: projects/support-rag.md, note: "the lab wraps the /ask endpoint as a tool and an MCP server"}
+  - {project: projects/incident-triage-finetune.md, note: "the lab wraps the triage model as an agent tool"}
+  - {project: projects/oncall-agent.md, note: "agent.py, approval.py and mcp_server.py: the loop, the approval gate and an MCP server"}
   decision/rl-basics.md:
-  - {project: projects/p4-decision-model.md, note: "env.py is a Gymnasium environment"}
+  - {project: projects/game-agent.md, note: "env.py is a Gymnasium environment"}
   decision/policy-methods.md:
-  - {project: projects/p4-decision-model.md, note: "train_ppo.py is a single-file PPO"}
+  - {project: projects/game-agent.md, note: "train_ppo.py is a single-file PPO"}
   decision/imitation.md:
-  - {project: projects/p4-decision-model.md, note: "train_bc.py: behavior cloning and DAgger from expert.py"}
+  - {project: projects/game-agent.md, note: "train_bc.py: behavior cloning and DAgger from expert.py"}
   decision/system-one.md:
-  - {project: projects/p4-decision-model.md, note: "export_onnx.py: a microsecond-scale controller"}
+  - {project: projects/game-agent.md, note: "export_onnx.py: a microsecond-scale controller"}
+  foundations/math.md:
+  - {project: projects/nn-from-scratch.md, note: "gradients, softmax and cross-entropy derived and checked numerically"}
+  decision/index.md:
+  - {project: projects/ticket-router.md, note: "a one-shot calibrated decision model, next to the sequential policy of the game agent"}
+  decision/routing-models.md:
+  - {project: projects/ticket-router.md, note: "three routers, temperature scaling, abstention and cost-based thresholds"}
+  - {project: projects/oncall-agent.md, note: "the router becomes one of the agent's tools"}
+  post-training/preference.md:
+  - {project: projects/post-train-assistant.md, note: "dpo.py: the DPO loss from scratch, then preference tuning"}

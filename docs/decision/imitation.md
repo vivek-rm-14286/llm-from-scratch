@@ -36,7 +36,7 @@ for epoch in range(30):
         opt.zero_grad(); loss.backward(); opt.step()
 ```
 
-That is the whole algorithm. [Project 4](../projects/p4-decision-model.md) does exactly this, with demonstrations from a scripted expert or from you playing with the keyboard.
+That is the whole algorithm. [Project 4](../projects/game-agent.md) does exactly this, with demonstrations from a scripted expert or from you playing with the keyboard.
 
 ### When BC works well
 
@@ -194,7 +194,7 @@ Read an LLM through this page's vocabulary:
 | RL fine-tuning from a BC init | RLHF with PPO, GRPO for reasoning |
 | KL penalty to the BC policy | the KL term to the SFT/reference model in RLHF |
 
-So the standard LLM recipe is the same as the robotics recipe: **behavior-clone a broad policy from demonstrations, then fine-tune with RL** against a reward to fix BC's weaknesses (compounding errors, being only as good as the average demonstrator, no notion of the objective). The KL penalty in RLHF does the job of "don't wander too far from the competent BC policy while optimizing a possibly imperfect reward". You will see the same constraint, as critic warmup and KL early stopping, when PPO fine-tunes the BC policy in [Project 4](../projects/p4-decision-model.md). For the LLM side, see [SFT](../post-training/sft.md), [Preference Optimization](../post-training/preference.md), and [Reasoning & RL with Verifiable Rewards](../post-training/reasoning-rl.md).
+So the standard LLM recipe is the same as the robotics recipe: **behavior-clone a broad policy from demonstrations, then fine-tune with RL** against a reward to fix BC's weaknesses (compounding errors, being only as good as the average demonstrator, no notion of the objective). The KL penalty in RLHF does the job of "don't wander too far from the competent BC policy while optimizing a possibly imperfect reward". You will see the same constraint, as critic warmup and KL early stopping, when PPO fine-tunes the BC policy in [Project 4](../projects/game-agent.md). For the LLM side, see [SFT](../post-training/sft.md), [Preference Optimization](../post-training/preference.md), and [Reasoning & RL with Verifiable Rewards](../post-training/reasoning-rl.md).
 
 !!! warning "Common pitfalls"
     - **Judging BC by validation accuracy.** High accuracy on held-out expert states says little about closed-loop performance. Always roll the policy out in the environment.

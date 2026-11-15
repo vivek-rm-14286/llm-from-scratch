@@ -61,7 +61,7 @@ Scale varies enormously, but the shape of the job is the same:
 |---|---|---|
 | GPT-2 (2019) | 124M - 1.5B | tens of billions |
 | Your first toy run | 10M - 125M | 1B - 10B |
-| Project 1 in this site | ~500M | ~10B - 50B |
+| Project 9 in this site | ~500M | ~10B - 50B |
 | SmolLM2 | 135M - 1.7B | roughly 2T - 11T |
 | Llama 3 8B | 8B | roughly 15T |
 

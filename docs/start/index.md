@@ -1,10 +1,10 @@
 # Start Here
 
-This site takes you from "I can write Python" to "I trained a 500M-parameter language model, fine-tuned an open-weight model for a real job, built a retrieval system people can trust, and trained a neural policy that plays a game." Every idea is built from first principles. You get the intuition first, then the minimum math, then PyTorch code you can run, then the things that go wrong in practice.
+This site takes you from "I can write Python" to "I wrote a neural network and a GPT by hand, fine-tuned and post-trained open-weight models for a real job, built a retrieval system and an agent people can trust, trained a neural policy that plays a game, and pretrained a 500M-parameter language model." Every idea is built from first principles. You get the intuition first, then the minimum math, then PyTorch code you can run, then the things that go wrong in practice.
 
 !!! abstract "What you'll learn on this page"
     - Who this site is written for and what it assumes you already know
-    - How the sections fit together, from math up to four end-to-end projects
+    - How the sections fit together, from math up to nine projects ordered by difficulty
     - How to work through a page and a project so the material sticks
     - Where to go next: the [roadmap](roadmap.md), [Choose Your Path](paths.md) and the [setup guide](setup.md)
 
@@ -12,7 +12,7 @@ This site takes you from "I can write Python" to "I trained a 500M-parameter lan
 
 You are a software engineer. You are comfortable with Python, git, the command line, and reading other people's code. You may have called an LLM API, but you have not trained a model of your own. Your math is rusty: you remember that matrices multiply and derivatives exist, but you would not want to derive backpropagation on a whiteboard today.
 
-You want to understand what is happening inside these models well enough to build one, not just use one. You also want results you can point to: a trained checkpoint, a fine-tuned adapter, a working retrieval pipeline, a trained agent.
+You want to understand what is happening inside these models well enough to build one, not just use one. You also want results you can point to: a trained checkpoint, a fine-tuned adapter, a working retrieval pipeline, a calibrated router, an agent with an evaluation gate.
 
 You do **not** need:
 
@@ -25,7 +25,7 @@ You do **not** need:
 
 ## How the site is organized
 
-The sidebar groups the site into five tracks: **Fundamentals** (Start Here, Foundations, Language Models), **Training Models** (Pretraining, Post-training, Fine-tuning, and the Beyond the Core electives), **Applying Models** (Inference, RAG, Applications, Safety & Production), **Decision Models**, and **Projects**. Within the language-model tracks, the sections follow the order in which a model is actually built and used, and each one depends on the ones before it. Decision Models depends only on Foundations.
+The sidebar groups the site into five tracks: **Fundamentals** (Start Here, Foundations, Language Models), **Training Models** (Pretraining, Post-training, Fine-tuning, and the Beyond the Core electives), **Applying Models** (Inference, RAG, Applications, Safety & Production), **Decision Models**, and **Projects**. Within the language-model tracks, the sections follow the order in which a model is actually built and used, and each one depends on the ones before it. Decision Models depends on Foundations, plus the first Language Models pages for its routing page. The Projects track is a ladder of nine builds; the dotted arrows below show the section each project comes after.
 
 The app tracks which pages are done and shows progress per module, remembers the roadmap's checkboxes, and has full-text search over every page. Progress is stored in your browser only.
 
@@ -40,11 +40,15 @@ flowchart LR
     R --> AP[Applications]
     AP --> SP[Safety & Production]
     F --> D[Decision Models]
-    P -.-> P1["Project 1: 500M SLM (Part A)"]
-    PT -.-> P1B["Project 1 Part B: SFT and release"]
-    FT -.-> P2["Project 2: QLoRA fine-tune"]
-    R -.-> P3["Project 3: RAG copilot"]
+    F -.-> P1["Project 1: Neural network"]
+    L -.-> P2["Project 2: Tiny GPT"]
+    D -.-> P3["Project 3: Ticket router"]
     D -.-> P4["Project 4: Game policy"]
+    R -.-> P5["Project 5: RAG copilot"]
+    FT -.-> P6["Project 6: QLoRA fine-tune"]
+    PT -.-> P7["Project 7: SFT then DPO"]
+    SP -.-> P8["Project 8: On-call agent"]
+    P -.-> P9["Project 9: 500M SLM"]
 ```
 
 <div class="grid cards" markdown>
@@ -95,22 +99,31 @@ flowchart LR
 
 -   **[Projects](../projects/index.md)**
 
-    Four end-to-end builds with complete, runnable code, each tying together several sections.
+    Nine builds in order of difficulty, from a neural network written by hand to a 500M-parameter language model. Each has a walkthrough, runnable code and a definition of done.
 
 </div>
 
 The **Reference** section has a [Glossary](../glossary.md) of the terms used across the site, a [Cheat Sheet](../cheatsheet.md) of formulas, memory math and default hyperparameters, and a short list of [Resources](../resources.md) for going deeper.
 
-### The four projects
+### The nine projects
 
-| # | Project | What you build | Main sections used |
-|---|---------|----------------|--------------------|
-| 1 | [Build a 500M SLM From Scratch](../projects/p1-500m-model.md) | A decoder-only transformer, pretrained from random weights on a public corpus, then turned into a chat model | Language Models, Pretraining, Post-training |
-| 2 | [Fine-tune an Open-Weight Model](../projects/p2-finetune.md) | A QLoRA adapter that triages IT-operations incidents | Fine-tuning, Inference |
-| 3 | [Build a Production RAG System](../projects/p3-rag.md) | A support-engineering copilot over product docs and resolved tickets | RAG |
-| 4 | [A Decision Model That Plays](../projects/p4-decision-model.md) | A neural policy controlling an on-screen game character, trained by imitation learning then PPO | Foundations, Decision Models |
+The projects form a ladder. Each is harder than the one before, and the level says what it asks of you: levels 1 and 2 run on a laptop, level 3 wants one consumer GPU, and level 4 ties everything together.
 
-Project 1 is the most expensive in compute, and it is split: Part A (pretraining) comes after the Pretraining pages, and Part B (SFT and release) after the SFT page. It starts with a warm-up that trains a 31M model on a laptop. Projects 3 and 4 run on a laptop, and Project 2 needs a single consumer GPU or a free Colab GPU. You do not have to do them in order. If you mainly care about applied work, Projects 2 and 3 give the best return on your time, and you can come back to Project 1 later. The [projects overview](../projects/index.md#the-projects-side-by-side) compares hardware, cost and time.
+| # | Level | Project | What you build | Main sections used |
+|---|---|---------|----------------|--------------------|
+| 1 | 1 | [Neural Network From Scratch](../projects/nn-from-scratch.md) | An autograd engine and a numpy MLP that classifies digits | Foundations |
+| 2 | 1 | [Tiny GPT](../projects/tiny-gpt.md) | A BPE tokenizer and a GPT of about 10M parameters, written by hand and trained on a laptop | Language Models |
+| 3 | 2 | [Ticket Router: a Calibrated Decision Model](../projects/ticket-router.md) | A support-ticket router built three ways (classifier, encoder, decision LM), calibrated, with an abstain option | Decision Models |
+| 4 | 2 | [A Decision Model That Plays](../projects/game-agent.md) | A neural policy controlling an on-screen game character, trained by imitation learning then PPO | Foundations, Decision Models |
+| 5 | 2 | [Build a Production RAG System](../projects/support-rag.md) | A support-engineering copilot over product docs and resolved tickets | RAG |
+| 6 | 3 | [Fine-tune an Open-Weight Model](../projects/incident-triage-finetune.md) | A QLoRA adapter that triages IT-operations incidents | Post-training, Fine-tuning, Inference |
+| 7 | 3 | [Post-train a Small Model: SFT, Then DPO](../projects/post-train-assistant.md) | A small assistant model, trained with SFT and DPO loops written by hand | Post-training |
+| 8 | 4 | [On-Call Agent: Tools, MCP, Guardrails](../projects/oncall-agent.md) | An agent that uses the builds from Projects 3, 5 and 6 as tools, behind guardrails and an evaluation gate | Applications, Safety & Production |
+| 9 | 4 | [Build a 500M SLM From Scratch](../projects/slm-500m.md) | A decoder-only transformer, pretrained from random weights on a public corpus, then turned into a chat model | Language Models, Pretraining, Post-training |
+
+Projects 1 to 5 and Project 8 run on a laptop; Projects 5 and 8 also need an LLM endpoint, which can be a local one. Project 6 needs a single consumer GPU or a free Colab GPU, and Project 7 runs on a laptop with its small model or on one GPU with a larger one. Project 9 is the most expensive in compute and comes last. It is split: a warm-up that trains a 31M model on a laptop, Part A (pretraining) after the Pretraining pages, and Part B (SFT and release) after the SFT page.
+
+The intended order is 1 to 9, and the [roadmap](roadmap.md) follows it. Some projects feed later ones: Project 2 is the small version of Project 9, and Project 8 integrates Projects 3, 5 and 6. Outside those links you can skip: if you mainly care about applied work, Projects 5, 6 and 8 give the best return on your time, and you can come back to Project 9 later. The [projects overview](../projects/index.md#the-projects-side-by-side) compares level, hardware, cost and time, and says when each project can be skipped.
 
 ## How to use this site
 
@@ -140,7 +153,7 @@ Keep one plain-text or markdown file per project. Write down every run: the conf
 
 ### Time budget
 
-The [roadmap](roadmap.md) assumes roughly 8-12 hours per week for about 21 weeks. If you have more time, compress it. If you have less, follow the same order and stretch it out. If you want only part of the site (RAG, fine-tuning, building a model, or decision models), [Choose Your Path](paths.md) lists the pages for each goal. Skipping Foundations to get to transformers faster usually costs more time later, when a bug in a training loop turns out to be a misunderstanding of gradients.
+The [roadmap](roadmap.md) assumes roughly 8-12 hours per week for about 29 weeks, with all nine projects. If you have more time, compress it. If you have less, follow the same order and stretch it out. If you want only part of the site (RAG, fine-tuning, building a model, decision models, or agents), [Choose Your Path](paths.md) lists the pages and projects for each goal. Skipping Foundations to get to transformers faster usually costs more time later, when a bug in a training loop turns out to be a misunderstanding of gradients.
 
 !!! tip "If you only have a weekend"
     Read [Math You Actually Need](../foundations/math.md) sections on softmax and cross-entropy, then [Embeddings & Attention](../llm/attention.md) and [The Transformer, Line by Line](../llm/transformer.md). You will come away understanding what a language model computes, even if you have not trained one yet.
@@ -148,10 +161,10 @@ The [roadmap](roadmap.md) assumes roughly 8-12 hours per week for about 21 weeks
 ## Check your understanding
 
 ??? question "You want to adapt an existing open-weight model to classify support tickets. Which sections matter most?"
-    [Fine-tuning](../finetuning/index.md) (LoRA and QLoRA) and the [Supervised Fine-Tuning](../post-training/sft.md) page (data formats and loss masking). [Decision Models for Routing & Classification](../decision/routing-models.md) is also relevant, since a small classifier may beat a generative model for this. Project 2 is the worked example.
+    [Fine-tuning](../finetuning/index.md) (LoRA and QLoRA) and the [Supervised Fine-Tuning](../post-training/sft.md) page (data formats and loss masking). [Decision Models for Routing & Classification](../decision/routing-models.md) is also relevant, since a small classifier may beat a generative model for this. Project 3 is the worked example for the classifier route, and Project 6 for fine-tuning a generative model.
 
 ??? question "Why does the site put Pretraining before Fine-tuning, when most people only ever fine-tune?"
-    Fine-tuning changes weights that pretraining produced. Knowing what pretraining optimizes (next-token prediction over a huge corpus), what the loss curve looks like, and how learning rate and batch size interact makes fine-tuning failures much easier to diagnose. You do not need to finish Project 1 before Project 2, but reading [The Training Loop](../pretraining/training.md) first helps.
+    Fine-tuning changes weights that pretraining produced. Knowing what pretraining optimizes (next-token prediction over a huge corpus), what the loss curve looks like, and how learning rate and batch size interact makes fine-tuning failures much easier to diagnose. The projects reflect this: Project 6 comes well before Project 9 on the ladder and does not need it, but reading [The Training Loop](../pretraining/training.md) first helps.
 
 ??? question "Which project can you start with the least hardware?"
-    Project 4 (the game policy) and Project 3 (RAG) run on a laptop, and so does Project 1's warm-up (a 31M model). Project 2 needs one 24 GB GPU for the 7B model, or a 16 GB GPU or free Colab T4 for the 1.5B model. Project 1's full run needs rented data-center GPUs to finish in reasonable time.
+    Projects 1 to 5 and Project 8 run on a laptop with no GPU (Projects 5 and 8 call an LLM, which can be a local one through Ollama), and so does Project 9's warm-up (a 31M model). Project 7 runs on a laptop with its small model. Project 6 needs one 24 GB GPU for the 7B model, or a 16 GB GPU or free Colab T4 for the 1.5B model. Project 9's full run needs rented data-center GPUs to finish in reasonable time.

@@ -57,7 +57,7 @@ You do not need to have trained or fine-tuned a model. RAG uses a language model
 
 ## The project this section feeds
 
-[Project 3: Build a Production RAG System](../projects/p3-rag.md) is the capstone: a support-engineer copilot over product docs and resolved tickets, with hybrid search, a reranker, per-document access control, guardrails, a FastAPI service and an evaluation harness. Its sample corpus is built so that the techniques from these two pages separate in the measurements: dense retrieval misses look-alike error codes, keyword search misses paraphrased questions, and the project page shows the measured table for all four retrieval modes.
+[Project 5: Build a Production RAG System](../projects/support-rag.md) is the capstone: a support-engineer copilot over product docs and resolved tickets, with hybrid search, a reranker, per-document access control, guardrails, a FastAPI service and an evaluation harness. Its sample corpus is built so that the techniques from these two pages separate in the measurements: dense retrieval misses look-alike error codes, keyword search misses paraphrased questions, and the project page shows the measured table for all four retrieval modes.
 
 | Page | Used in the project for |
 |---|---|

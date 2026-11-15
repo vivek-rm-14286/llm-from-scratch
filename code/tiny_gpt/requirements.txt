@@ -1,0 +1,8 @@
+# Tested with Python 3.12, torch 2.15, numpy 2.5, pytest 9.2 and datasets 5.2 on an Apple M1 Pro (MPS and CPU).
+# torch>=2.4 should work (the code uses F.scaled_dot_product_attention and torch.load(weights_only=True)).
+# Install with: uv pip install -r requirements.txt
+torch>=2.4
+numpy>=1.26
+pytest>=8.0
+# Only for the optional TinyStories slice (python data.py --dataset tinystories):
+datasets>=3.0

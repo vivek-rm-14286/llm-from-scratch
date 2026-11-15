@@ -92,7 +92,7 @@ Each box is a place where quality is won or lost, and each one is covered somewh
 
     ---
 
-    The agent loop, how tool calls are tokens in the chat template, ReAct, a minimal agent in about 100 lines of Python, the Model Context Protocol with a working server, multi-agent patterns, a worked tool-call training example, a task-success evaluation loop, safety, and a lab that wraps Projects 2 and 3 as tools.
+    The agent loop, how tool calls are tokens in the chat template, ReAct, a minimal agent in about 100 lines of Python, the Model Context Protocol with a working server, multi-agent patterns, a worked tool-call training example, a task-success evaluation loop, safety, and a lab that wraps Projects 5 and 6 as tools.
 
 </div>
 

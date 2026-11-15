@@ -19,7 +19,7 @@ export function Home() {
         <p className="mt-4 max-w-2xl text-lg leading-relaxed text-muted">
           A hands-on textbook in five tracks: <b className="text-ink">Fundamentals</b>, <b className="text-ink">Training Models</b>, <b className="text-ink">Applying Models</b>,{' '}
           <b className="text-ink">Decision Models</b> and <b className="text-ink">Projects</b>. Every lesson goes from intuition to math to <b className="text-ink">runnable PyTorch</b>,
-          and four capstone projects take you from a <b className="text-ink">500M SLM trained from scratch</b> to RAG, fine-tuning and a policy that plays a game.
+          and <b className="text-ink">nine projects in increasing difficulty</b> take you from a neural network written by hand to a 500M-parameter language model, by way of RAG, fine-tuning, post-training, decision models and an agent.
         </p>
         <div className="mt-7 flex flex-wrap gap-3">
           <Link to={routeHref(resume)} className="inline-flex items-center gap-2 rounded-lg bg-accent px-5 py-2.5 font-semibold text-white hover:opacity-90">
@@ -68,6 +68,7 @@ export function Home() {
                     <li key={l.route}>
                       <Link to={routeHref(l.route)} className={`inline-block rounded-full border px-3 py-1 text-[13px] hover:border-accent hover:text-accent ${done.has(l.route) ? 'border-ok/50 bg-ok/10' : 'border-line'}`}>
                         {j > 0 ? `${j}. ` : ''}{l.label}
+                        {PAGES[l.route].tag && <span className="ml-1.5 font-mono text-[10px] text-muted">{PAGES[l.route].tag!.split(' · ')[0].replace('Level ', 'L')}</span>}
                       </Link>
                     </li>
                   ))}

@@ -89,14 +89,14 @@ if __name__ == "__main__":
 
 Here task accuracy improved, but the safety refusal rate dropped by 6 points, well outside noise, so the gate fails. This is the pattern you want: a single headline metric going up must not hide a regression elsewhere. Gate on **every** metric you care about, including safety and over-refusal, and include cost and latency budgets.
 
-## Lab: an eval gate for Project 3
+## Lab: an eval gate for Project 5
 
-[Project 3](../projects/p3-rag.md) has what a gate needs: a versioned golden set, an evaluation that is deterministic and needs no LLM, and one metric with a hard limit of zero. Its retrieval evaluation reports recall@5 and MRR for four retrieval modes and counts **ACL leaks**, retrieved chunks above the asking user's access level. Setup is described in [the project's setup section](../projects/p3-rag.md#0-setup-and-the-one-minute-smoke-test).
+[Project 5](../projects/support-rag.md) has what a gate needs: a versioned golden set, an evaluation that is deterministic and needs no LLM, and one metric with a hard limit of zero. Its retrieval evaluation reports recall@5 and MRR for four retrieval modes and counts **ACL leaks**, retrieved chunks above the asking user's access level. Setup is described in [the project's setup section](../projects/support-rag.md#0-setup-and-the-one-minute-smoke-test).
 
 **Step 1. Record a baseline.**
 
 ```bash
-cd code/p3_support_rag
+cd code/support_rag
 python eval.py --reingest --write-baseline ci/baseline.json
 ```
 
@@ -122,7 +122,7 @@ Unchanged code prints `GATE PASSED` and exits 0. The gate fails on any ACL leak,
 
 The last two rows are the instructive ones. A gate catches what its metrics can see and what its tolerance lets through. A wrong access label at the source is invisible to a check that trusts labels, so it needs its own test (for example: every file under an `internal` path must be indexed with `access_level >= 1`). And a tolerance wide enough to ignore noise also lets small real regressions accumulate, which is why the baseline is updated only deliberately.
 
-**Step 4. Put it in CI.** [`ci/eval-gate.yml`](https://github.com/vivek-rm-14286/llm-from-scratch/tree/main/code/p3_support_rag/ci/eval-gate.yml) is a sample GitHub Actions workflow with three checks: the golden set is consistent with the corpus, the retrieval gate from step 2, and the red-team run from the [safety lab](safety.md#lab-red-team-the-project-3-copilot) with a ceiling on attack success rate. It installs CPU-only PyTorch, caches the two small models, and uploads both reports as artifacts. Copy it to `.github/workflows/` in a fork, open a pull request with one of the changes from step 3, and confirm the check goes red.
+**Step 4. Put it in CI.** [`ci/eval-gate.yml`](https://github.com/vivek-rm-14286/llm-from-scratch/tree/main/code/support_rag/ci/eval-gate.yml) is a sample GitHub Actions workflow with three checks: the golden set is consistent with the corpus, the retrieval gate from step 2, and the red-team run from the [safety lab](safety.md#lab-red-team-the-project-5-copilot) with a ceiling on attack success rate. It installs CPU-only PyTorch, caches the two small models, and uploads both reports as artifacts. Copy it to `.github/workflows/` in a fork, open a pull request with one of the changes from step 3, and confirm the check goes red.
 
 ```yaml title="ci/eval-gate.yml (excerpt)"
       - name: Retrieval eval gate (ACL leaks, recall and MRR vs baseline)

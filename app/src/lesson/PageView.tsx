@@ -12,6 +12,7 @@ export function PageView({ route, meta }: { route: string; meta: PageMeta }) {
   const done = useProgress().has(route)
   const { prev, next } = neighbours(route)
   const isLesson = meta.module !== null
+  const isProject = route.startsWith('projects/')
   const sections = meta.headings.filter((h) => h.level === 2)
   // pages that number their own sections ("0. Setup", "Part A") skip the automatic numbers
   const ownNumbers = sections.filter((h) => /^(\d+\.|Part\s)/.test(h.text)).length >= 2
@@ -41,7 +42,8 @@ export function PageView({ route, meta }: { route: string; meta: PageMeta }) {
       <article className="w-full min-w-0 max-w-4xl px-4 pb-24 sm:px-8" data-testid="page" data-route={route}>
         <header className="pt-8 pb-6">
           <p className="flex flex-wrap items-center gap-x-2 font-mono text-xs text-accent">
-            {isLesson && <span>{meta.module} · {meta.moduleTitle} · {meta.index === 0 ? 'Overview' : `Lesson ${meta.index}`}</span>}
+            {isLesson && <span>{meta.module} · {meta.moduleTitle} · {meta.index === 0 ? 'Overview' : `${isProject ? 'Project' : 'Lesson'} ${meta.index}`}</span>}
+            {meta.tag && <span className="rounded-full bg-accent-soft px-2 py-0.5 font-sans text-[11px] font-semibold text-accent">{meta.tag}</span>}
             <span className="flex items-center gap-1 text-muted"><Clock className="size-3" /> {fmtMinutes(meta.minutes)} read</span>
           </p>
           <h1 className="mt-1 text-3xl font-bold tracking-tight sm:text-4xl">{meta.title}</h1>

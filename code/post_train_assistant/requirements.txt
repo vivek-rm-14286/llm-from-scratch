@@ -1,0 +1,7 @@
+# Tested with Python 3.12, torch 2.15.0, transformers 5.23.0, datasets 5.2.0, pytest 9.2.0, trl 1.18.0 (Apple M1 Pro, MPS).
+torch>=2.4
+transformers>=5.0
+datasets>=3.0
+pytest>=7.4
+# Optional: only the second half of crosscheck_dpo.py needs it. Without trl that comparison is skipped.
+trl>=1.0
